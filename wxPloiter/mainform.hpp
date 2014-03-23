@@ -183,7 +183,7 @@ namespace wxPloiter
 
 		// buttons
 		void OnInjectPacketClicked(wxCommandEvent &e);
-		void mainform::packetspamthread(boost::shared_array<maple::packet> lines, dword count, dword delay, bool recv);
+		void packetspamthread(boost::shared_array<maple::packet> lines, dword count, dword delay, bool recv);
 		void OnSpamClicked(wxCommandEvent &e);
 
 		// menu events
