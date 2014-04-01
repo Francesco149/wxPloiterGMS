@@ -71,5 +71,7 @@ namespace wxPloiter
 	{
 		if (e.CanVeto())
 			e.Veto();
+		else
+			e.Skip();
 	}
 }
