@@ -69,6 +69,7 @@ namespace wxPloiter
 
 	void jewhookdialog::OnClose(wxCloseEvent &e)
 	{
-		e.Veto();
+		if (e.CanVeto())
+			e.Veto();
 	}
 }
