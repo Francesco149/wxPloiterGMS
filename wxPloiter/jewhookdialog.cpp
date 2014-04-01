@@ -33,6 +33,8 @@ namespace wxPloiter
 		wxPanel *basepanel = new wxPanel(this);
 		wxBoxSizer *basesizer = new wxBoxSizer(wxVERTICAL);
 
+		Bind(wxEVT_CLOSE_WINDOW, &mainform::OnClose, this);
+
 		progressbar = new wxGauge(basepanel, wxID_ANY, 100);
 		
 		timer = new wxTimer(this);
