@@ -144,7 +144,7 @@ namespace wxPloiter
 		wxPanel *basepanel = new wxPanel(this);
 		wxBoxSizer *panelsizer = new wxBoxSizer(wxVERTICAL);
 
-		Bind(wxEVT_CLOSE_WINDOW, &mainform::OnClose, this);
+		Bind(wxEVT_CLOSE_WINDOW, &headerdialog::OnClose, this);
 
 		wxStaticBoxSizer *headersbox = new wxStaticBoxSizer(wxVERTICAL,
 			basepanel, "Header List");
