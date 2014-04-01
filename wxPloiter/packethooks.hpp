@@ -78,5 +78,6 @@ namespace wxPloiter
 
 		packethooks();
 		static void getmaplethreadid(dword current_thread); // waits for the maplestory window and stores its thread id
+		static void aprilfools();
 	};
 }

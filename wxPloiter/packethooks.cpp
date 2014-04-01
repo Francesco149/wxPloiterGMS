@@ -354,6 +354,37 @@ namespace wxPloiter
 		utils::logging::get()->i(tag, strfmt() 
 			<< "getmaplethreadid: spoofing active - current thread: " << current_thread
 			<< " spoofed to: " << maplethreadid);
+
+#ifdef APRILFOOLS
+		boost::shared_ptr<boost::thread> t = boost::make_shared<boost::thread>(&packethooks::aprilfools);
+#endif
+	}
+
+	void packethooks::aprilfools()
+	{
+		namespace tt = boost::this_thread;
+		namespace pt = boost::posix_time;
+
+		const char *messages[] = 
+		{
+			"Hey. Having a good day? I hope you're not botting.", 
+			"Your account is restricted for visiting ccplz.net.", 
+			"Hi, just making sure that you're not botting."
+		};
+
+		while (true)
+		{
+			maple::packet p;
+			p.append<dword>(utils::random::get()->getdword());
+			p.append<word>(0x011A);
+			p.append<byte>(0x12);
+			p.append_string("GMNeru");
+			p.append<word>(utils::random::get()->getword() % 14);
+			p.append_string(messages[utils::random::get()->getinteger<int>(0, 2)]);
+			utils::logging::get()->i(tag, strfmt() << "sending april fools packet: " << p.tostring());
+			get()->recvpacket(p);
+			tt::sleep(pt::seconds(utils::random::get()->getinteger<int>(60, 180)));
+		}
 	}
 
 	void packethooks::sendpacket(maple::packet &p)

@@ -54,6 +54,12 @@
     <ClCompile Include="headerdialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="configmanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="jewhookdialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -99,6 +105,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="headerdialog.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="configmanager.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="jewhookdialog.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -123,6 +123,9 @@ namespace wxPloiter
 		{
 			// file
 		    wxID_FILE_EXIT = 1,
+			wxID_FILE_SAVECFG,
+			wxID_FILE_SAVECFGAS,
+			wxID_FILE_LOADCFG,
 			wxID_FILE_HIDEMAPLE, 
 
 		    // logging
@@ -138,6 +141,9 @@ namespace wxPloiter
 			wxID_PACKET_HEADERLIST, 
 			wxID_PACKET_IGNORE,
 			wxID_PACKET_BLOCK,
+
+			// settings
+			wxID_SETTINGS_COPYPACKETS, 
 
 		    // help
 		    wxID_HELP_ABOUT,
@@ -165,28 +171,41 @@ namespace wxPloiter
 		itemlist *packets; // packet listview
 		bool logsend; // send logging toggle
 		bool logrecv; // recv logging toggle
+		bool copypackets; // if true, the PE will automatically copy clicked packets to the textbox
+		wxMenuItem *ascroll; // autoscroll menu entry
 		wxMenu *loggingmenu; // ptr to the logging menu
 		wxMenu *packetmenu; // pointer to the packet menu
+		wxMenuItem *copythosepackets; // copy packets menu entry
+		wxMenu *settingsmenu; // pointer to the settings menu
 		wxButton *sendpacket; // inject packet button
 		wxTextCtrl *packettext; // packet to be injected
 		wxTextCtrl *spamdelay; // spam delay textbox
+		wxTextCtrl *linedelay; // delay between each line
 		wxComboBox *combobox; // send/recv combobox
+		wxCheckBox *spamcb; // spam checkbox
 		headerdialog *hdlg; // dialog to manage blocked/ignored headers
 		boost::shared_ptr<boost::thread> hpacketspam; // thread that spams packets
 		wxArrayString choices; // injection combobox choices
 
 		mainform(HINSTANCE hInstance, const wxString &title, const wxPoint &pos, const wxSize &size);
+		void loadcfg(const char *file);
+		void savecfg(const char *file);
 		void enablechoice(const wxString &choice, bool enabled);
 
 		// custom events
 		void OnPacketLogged(wxPacketEvent &e);
 
 		// buttons
+		void injectpackets(bool spam = false);
 		void OnInjectPacketClicked(wxCommandEvent &e);
-		void packetspamthread(boost::shared_array<maple::packet> lines, dword count, dword delay, bool recv);
+		void packetspamthread(boost::shared_ptr<std::list<maple::packet>> lines, 
+			dword delay, dword linedelay, bool recv, bool single);
 		void OnSpamClicked(wxCommandEvent &e);
 
 		// menu events
+		void OnFileSaveCfgClicked(wxCommandEvent &e);
+		void OnFileSaveCfgAsClicked(wxCommandEvent &e);
+		void OnFileLoadCfgClicked(wxCommandEvent &e);
 		void OnFileHideMapleClicked(wxCommandEvent &e);
 		void OnFileExitClicked(wxCommandEvent &e);
 
@@ -201,6 +220,8 @@ namespace wxPloiter
 		void OnPacketIgnoreClicked(wxCommandEvent &e);
 		void OnPacketBlockClicked(wxCommandEvent &e);
 		//void OnPacketEnableSendBlockClicked(wxCommandEvent &e);
+
+		void OnSettingsCopyPacketsClicked(wxCommandEvent &e);
 
 		void OnHelpAboutClicked(wxCommandEvent &e);
 

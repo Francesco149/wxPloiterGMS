@@ -23,6 +23,11 @@
 #include "resource.h"
 #include "utils.hpp"
 #include "safeheaderlist.hpp"
+#include "configmanager.hpp"
+
+#ifdef APRILFOOLS
+#include "jewhookdialog.hpp"
+#endif
 
 #include <wx/wx.h>
 #include <wx/log.h>
@@ -48,7 +53,7 @@ namespace wxPloiter
 	const std::string app::logfile = "wxPloiter.log";
 	const std::string app::tag = "wxPloiter::app";
 	const wxString app::appname = "wxPloiter";
-	const wxString app::appver = "r1";
+	const wxString app::appver = "r2";
 
 	void app::rundll(HINSTANCE hInstance)
 	{
@@ -315,10 +320,17 @@ namespace wxPloiter
 		  packets(NULL), // packet listview
 		  logsend(false), // log send toggle
 		  logrecv(false), // log recv toggle
+		  copypackets(true), // if true, the PE will automatically copy clicked packets to the textbox
+		  ascroll(NULL), // autoscroll menu entry
 		  loggingmenu(NULL), // logging menu
 		  packetmenu(NULL), // packet menu
+		  copythosepackets(NULL), // copy packets menu entry
+		  settingsmenu(NULL), // settings menu
 		  packettext(NULL), // inject packet textbox
 		  spamdelay(NULL), // spam delay textbox
+		  linedelay(NULL), // delay between lines
+		  combobox(NULL), // send/recv combobox
+		  spamcb(NULL), // spam checkbox
 		  hdlg(NULL) // headers dialog
 	{
 		//SetMinSize(size);
@@ -341,17 +353,23 @@ namespace wxPloiter
 
 		// file menu
 		wxMenu *menu = new wxMenu;
+		menu->Append(wxID_FILE_SAVECFG, "Save config");
+		menu->Append(wxID_FILE_SAVECFGAS, "Save config as...");
+		menu->Append(wxID_FILE_LOADCFG, "Load config");
 		menu->AppendCheckItem(wxID_FILE_HIDEMAPLE, "Hide MapleStory");
 		menu->Append(wxID_FILE_EXIT, "Exit");
 		mbar->Append(menu, "File"); // add menu to the menu 
 
 		// bind menu events
+		menu_bind(&mainform::OnFileSaveCfgClicked, wxID_FILE_SAVECFG);
+		menu_bind(&mainform::OnFileSaveCfgAsClicked, wxID_FILE_SAVECFGAS);
+		menu_bind(&mainform::OnFileLoadCfgClicked, wxID_FILE_LOADCFG);
 		menu_bind(&mainform::OnFileHideMapleClicked, wxID_FILE_HIDEMAPLE);
 		menu_bind(&mainform::OnFileExitClicked, wxID_FILE_EXIT);
 
 		// logging menu
 		menu = new wxMenu;
-		wxMenuItem *ascroll = menu->AppendCheckItem(wxID_LOGGING_AUTOSCROLL, "Autoscroll");
+		ascroll = menu->AppendCheckItem(wxID_LOGGING_AUTOSCROLL, "Autoscroll");
 		ascroll->Check(true);
 		menu->Append(wxID_LOGGING_CLEAR, "Clear");
 		menu->AppendCheckItem(wxID_LOGGING_SEND, "Log send");
@@ -382,6 +400,15 @@ namespace wxPloiter
 		menu_bind(&mainform::OnPacketIgnoreClicked, wxID_PACKET_IGNORE);
 		menu_bind(&mainform::OnPacketBlockClicked, wxID_PACKET_BLOCK);
 		//menu_bind(&mainform::OnPacketEnableSendBlockClicked, wxID_PACKET_ENABLESENDBLOCK);
+
+		// settings menu
+		menu = new wxMenu;
+		copythosepackets = menu->AppendCheckItem(wxID_SETTINGS_COPYPACKETS, "Copy packets to the textbox");
+		copythosepackets->Check();
+		mbar->Append(menu, "Settings"); // add menu to the menu bar
+		settingsmenu = menu;
+
+		menu_bind(&mainform::OnSettingsCopyPacketsClicked, wxID_SETTINGS_COPYPACKETS);
 
 		// help menu
 		menu = new wxMenu;
@@ -430,18 +457,28 @@ namespace wxPloiter
 				sendpacket = new wxButton(box, wxID_ANY, "Inject");
 				sendpacket->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &mainform::OnInjectPacketClicked, this);
 
-				wxCheckBox *spam = new wxCheckBox(box, wxID_ANY, "Spam");
+				spamcb = new wxCheckBox(box, wxID_ANY, "Spam");
 				spamdelay = new wxTextCtrl(box, wxID_ANY, "20");
-				spam->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &mainform::OnSpamClicked, this);
+				spamcb->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &mainform::OnSpamClicked, this);
 
-				buttons->Add(sendpacket, 0, wxTOP | wxRIGHT, 5);
+				buttons->Add(sendpacket, 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);
 				buttons->Add(combobox, 0, wxTOP | wxRIGHT | wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
 				buttons->Add(spamdelay, 0, wxTOP | wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
-				buttons->Add(spam, 0, wxTOP | wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
+				buttons->Add(spamcb, 0, wxTOP | wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
+			}
+
+			wxBoxSizer *multilinedelay = new wxBoxSizer(wxHORIZONTAL);
+			{
+				linedelay = new wxTextCtrl(box, wxID_ANY, "20");
+				wxStaticText *linedtext = new wxStaticText(box, wxID_ANY, "Delay between each line: ");
+
+				multilinedelay->Add(linedtext, 0, wxTOP | wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
+				multilinedelay->Add(linedelay, 0, wxTOP | wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
 			}
 
 			injectbox->Add(packettext, 2, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, 10);
 			injectbox->Add(buttons, 1, wxLEFT | wxRIGHT | wxBOTTOM, 10);
+			injectbox->Add(multilinedelay, 1, wxLEFT | wxRIGHT | wxBOTTOM, 10);
 		}
 
 		wxBoxSizer *begsizer = new wxBoxSizer(wxHORIZONTAL);
@@ -477,12 +514,208 @@ namespace wxPloiter
 		// create child dialogs
 		hdlg = new headerdialog(this);
 
+		wxLogStatus("Loading config...");
+		loadcfg("wxPloiter.ini");
+
 		wxLogStatus("Idle.");
+
+		jewhookdialog jh(this);
+	}
+
+	void mainform::loadcfg(const char *file)
+	{
+		try
+		{
+			configmanager::ptr cfg = configmanager::get();
+
+			cfg->open(file);
+
+			ascroll->Check(cfg->get("general.autoscroll", true));
+			packets->setautoscroll(ascroll->IsChecked());
+
+			copythosepackets->Check(cfg->get("general.copypackets", true));
+			copypackets = copythosepackets->IsChecked();
+
+			int linecount = cfg->get<int>("multiline.lines", 0);
+
+			packettext->Clear();
+			for (int i = 0; i < linecount; i++)
+			{
+				std::ostringstream oss;
+				oss << "multiline.line" << i;
+				packettext->AppendText(cfg->get<std::string>(oss.str().c_str(), ""));
+				packettext->AppendText("\r\n");
+			}
+
+			bool ismultilinerecv = cfg->get("multiline.isrecv", false);
+			combobox->SetValue(ismultilinerecv ? "Recv" : "Send");
+
+			spamdelay->SetValue(cfg->get<std::string>("multiline.spamdelay", "20"));
+			linedelay->SetValue(cfg->get<std::string>("multiline.linedelay", "20"));
+
+			/*
+			TODO: fix this crap crashing
+
+			size_t headercount = cfg->get<size_t>("headers.count", 0);
+
+			for (size_t i = 0; i < headercount; i++)
+			{
+				std::ostringstream base;
+				std::ostringstream hdr;
+				std::ostringstream dir;
+				std::ostringstream act;
+
+				base << "headers.header" << i;
+				hdr << base.str() << ".header";
+				dir << base.str() << ".isrecv";
+				act << base.str() << ".isignore";
+
+				try
+				{
+					word header = cfg->get<word>(hdr.str().c_str());
+					bool isrecvheader = cfg->get<bool>(dir.str().c_str());
+					bool isignore = cfg->get<bool>(act.str().c_str());
+
+					safeheaderlist::ptr list;
+
+					if (isrecvheader)
+						list = isignore ? safeheaderlist::getignoredrecv() : safeheaderlist::getblockedrecv();
+					else
+						list = isignore ? safeheaderlist::getignoredsend() : safeheaderlist::getblockedsend();
+
+					list->push_back(header);
+				}
+				catch (const boost::property_tree::ptree_error &)
+				{
+					continue;
+				}
+			}
+			*/
+		}
+		catch (const boost::property_tree::ptree_error &e)
+		{
+			log->e(tag, strfmt() << "loadcfg: " << e.what());
+		}
+	}
+
+	void mainform::savecfg(const char *file)
+	{
+		log->i(tag, strfmt() << "savecfg: saving to " << file);
+
+		try
+		{
+			configmanager::ptr cfg = configmanager::get();
+
+			cfg->clear();
+			cfg->set("general.autoscroll", ascroll->IsChecked());
+			cfg->set("general.copypackets", copythosepackets->IsChecked());
+			cfg->set("multiline.lines", packettext->GetNumberOfLines());
+
+			for (int i = 0; i < packettext->GetNumberOfLines(); i++)
+			{
+				std::ostringstream oss;
+				oss << "multiline.line" << i;
+				cfg->set(oss.str().c_str(), packettext->GetLineText(i).ToStdString());
+			}
+
+			cfg->set("multiline.isrecv", combobox->GetValue().Cmp("Recv") == 0);
+			cfg->set("multiline.spamdelay", spamdelay->GetValue().ToStdString());
+			cfg->set("multiline.linedelay", linedelay->GetValue().ToStdString());
+
+			/*
+			TODO: figure out why this crashes
+			size_t sz1 = safeheaderlist::getblockedrecv()->size();
+			size_t sz2 = safeheaderlist::getblockedsend()->size();
+			size_t sz3 = safeheaderlist::getignoredrecv()->size();
+			size_t sz4 = safeheaderlist::getignoredsend()->size();
+			size_t headercount = sz1 + sz2 + sz3 + sz4;
+			cfg->set("headers.count", headercount);
+
+			for (size_t i = 0; i < headercount; i++)
+			{
+				safeheaderlist::ptr list;
+				size_t reali = i;
+				size_t s1 = safeheaderlist::getblockedrecv()->size();
+				log->d(tag, strfmt() << "s1 = " << s1);
+				size_t s2 = s1 + safeheaderlist::getblockedsend()->size();
+				log->d(tag, strfmt() << "s2 = " << s2);
+				size_t s3 = s2 + safeheaderlist::getignoredrecv()->size();
+				log->d(tag, strfmt() << "s3 = " << s3);
+				size_t s4 = s3 + safeheaderlist::getignoredsend()->size();
+				log->d(tag, strfmt() << "s4 = " << s4);
+
+				std::ostringstream base;
+				std::ostringstream hdr;
+				std::ostringstream dir;
+				std::ostringstream act;
+
+				base << "headers.header" << i;
+				log->d(tag, strfmt() << "base = " << base.str());
+				hdr << base.str() << ".header";
+				log->d(tag, strfmt() << "hdr = " << hdr.str());
+				dir << base.str() << ".isrecv";
+				log->d(tag, strfmt() << "dir = " << dir.str());
+				act << base.str() << ".isignore";
+				log->d(tag, strfmt() << "act = " << act.str());
+
+				if (i < s1)
+				{
+					list = safeheaderlist::getblockedrecv();
+					log->i(tag, strfmt() << "savecfg: " << hdr.str() << "=0x" << 
+						std::hex << std::uppercase << std::setw(2) << std::setfill('0') << list->at(reali));
+					cfg->set<word>(hdr.str().c_str(), list->at(reali));
+					cfg->set(dir.str().c_str(), true);
+					cfg->set(act.str().c_str(), false);
+				}
+
+				else if (i < s2)
+				{
+					reali -= s1;
+					list = safeheaderlist::getblockedrecv();
+					log->i(tag, strfmt() << "savecfg: " << hdr.str() << "=0x" << 
+						std::hex << std::uppercase << std::setw(2) << std::setfill('0') << list->at(reali));
+					cfg->set<word>(hdr.str().c_str(), list->at(reali));
+					cfg->set(dir.str().c_str(), false);
+					cfg->set(act.str().c_str(), false);
+				}
+
+				else if (i < s3)
+				{
+					reali -= s2;
+					list = safeheaderlist::getblockedrecv();
+					log->i(tag, strfmt() << "savecfg: " << hdr.str() << "=0x" << 
+						std::hex << std::uppercase << std::setw(2) << std::setfill('0') << list->at(reali));
+					cfg->set<word>(hdr.str().c_str(), list->at(reali));
+					cfg->set(dir.str().c_str(), true);
+					cfg->set(act.str().c_str(), true);
+				}
+
+				else if (i < s4)
+				{
+					reali -= s3;
+					list = safeheaderlist::getblockedrecv();
+					log->i(tag, strfmt() << "savecfg: " << hdr.str() << "=0x" << 
+						std::hex << std::uppercase << std::setw(2) << std::setfill('0') << list->at(reali));
+					cfg->set<word>(hdr.str().c_str(), list->at(reali));
+					cfg->set(dir.str().c_str(), false);
+					cfg->set(act.str().c_str(), true);
+				}
+				else
+					assert(false); // should never happen
+			}
+			*/
+
+			cfg->save(file);
+		}
+		catch (const boost::property_tree::ptree_error &e)
+		{
+			log->e(tag, strfmt() << "savecfg: " << e.what());
+		}
 	}
 
 	mainform::~mainform()
 	{
-		// empty
+		//savecfg("wxPloiter.ini");
 	}
 
 	/*
@@ -494,6 +727,9 @@ namespace wxPloiter
 
 	void mainform::enablechoice(const wxString &choice, bool enabled)
 	{
+		// this is all very ghetto but I'm too lazy to do it properly
+		// coding GUIs is annoying as fuck
+
 		bool found = choices.Index(choice) != wxNOT_FOUND;
 
 		wxString current = combobox->GetValue();
@@ -508,10 +744,16 @@ namespace wxPloiter
 		combobox->Append(choices);
 
 		if (!choices.size())
+		{
 			sendpacket->Enable(false);
+			spamcb->Enable(false);
+		}
 		
 		else
+		{
 			sendpacket->Enable(true);
+			spamcb->Enable(true);
+		}
 
 		if (choices.Index(current) != wxNOT_FOUND)
 			combobox->SetValue(current);
@@ -592,6 +834,74 @@ namespace wxPloiter
 		);
 	}
 
+	void mainform::injectpackets(bool spam)
+	{
+		bool recv = combobox->GetValue().Cmp("Recv") == 0;
+
+		dword datspamdelay;
+		dword datmultilinedelay;
+
+		try   
+		{
+			datspamdelay = spam ? boost::lexical_cast<int>(spamdelay->GetValue().ToStdString()) : 0;
+			datmultilinedelay = boost::lexical_cast<int>(linedelay->GetValue().ToStdString());
+		}
+		catch(boost::bad_lexical_cast &e)
+		{
+			wxLogError("Invalid spam/line delay: %s.", wxString(e.what()));
+			return;
+		}
+
+		try
+		{
+			boost::shared_ptr<std::list<maple::packet>> lines(new std::list<maple::packet>);
+
+			for (int i = 0; i < packettext->GetNumberOfLines(); i++)
+			{
+				bool whitespace = true;
+				wxString theline = packettext->GetLineText(i);
+			
+				if (!theline.length()) // ignore empty lines
+					continue;
+				
+				for (size_t j = 0; j < theline.length(); j++) // ignore pure whitespace lines
+				{
+					if (theline[j] == 32) // 0x20 = whitespace
+						continue;
+
+					whitespace = false;
+					break;
+				}
+
+				if (whitespace)
+					continue;
+
+				lines->resize(lines->size() + 1);
+
+				if (recv)
+				{
+					// generate random recv header
+					dword dwHeader = utils::random::get()->getdword();
+					lines->back().append<dword>(dwHeader);
+					lines->back().append_data(theline.ToStdString());
+				}
+				else
+					lines->back().append_data(theline.ToStdString());
+				
+				log->i(tag, strfmt() << "injectpackets: parsed " << combobox->GetValue().ToStdString() << " " << lines->back().tostring());
+			}
+
+			hpacketspam = boost::make_shared<boost::thread>(
+				boost::bind(&mainform::packetspamthread, this, lines, 
+					datspamdelay, datmultilinedelay, recv, !spam)
+			);
+		}
+		catch (std::exception &e)
+		{
+			wxLogError("Invalid packet: %s.", wxString(e.what()));
+		}
+	}
+
 	void mainform::OnInjectPacketClicked(wxCommandEvent &e)
 	{
 		if (packettext->GetValue().IsEmpty())
@@ -606,69 +916,62 @@ namespace wxPloiter
 			return;
 		}
 
-		boost::shared_ptr<packethooks> ph = packethooks::get();
-		bool recv = (combobox->GetValue().Cmp("Recv") == 0);
-
-		try
+		if (hpacketspam.get())
 		{
-			for (int i = 0; i < packettext->GetNumberOfLines(); i++)
-			{
-				maple::packet p;
-
-				if (recv)
-				{
-					// generate random recv header
-					dword dwHeader = utils::random::get()->getdword();
-					p.append<dword>(dwHeader);
-					p.append_data(packettext->GetLineText(i).ToStdString());
-					ph->recvpacket(p);
-				}
-				else
-				{
-					p.append_data(packettext->GetLineText(i).ToStdString());
-					ph->sendpacket(p);
-				}
-
-				log->i(tag, strfmt() << "OnInjectPacketClicked: injected " << 
-					combobox->GetValue().ToStdString() << " " << p.tostring());
-			}
+			hpacketspam->interrupt();
+			hpacketspam.reset();
 		}
-		catch (std::exception &e)
-		{
-			wxLogError("Invalid packet: %s.", wxString(e.what()));
-		}
+
+		injectpackets();
 	}
 
-	void mainform::packetspamthread(boost::shared_array<maple::packet> lines, dword count, dword delay, bool recv)
+	void mainform::packetspamthread(boost::shared_ptr<std::list<maple::packet>> lines, 
+		dword delay, dword linedelay, bool recv, bool single)
 	{
 		namespace tt = boost::this_thread;
 		namespace pt = boost::posix_time;
 
 		boost::shared_ptr<packethooks> ph = packethooks::get();
+		typedef std::list<maple::packet>::iterator linesiterator;
+		int count = lines->size();
 
-		while (true)
+		do
 		{
-			for (dword i = 0; i < count; i++)
+			for (linesiterator i = lines->begin(); i != lines->end(); i++)
 			{
 				if (recv)
-					ph->recvpacket(lines[i]);
+					ph->recvpacket(*i);
 				else
-					ph->sendpacket(lines[i]); // TODO: multisend delay between each line
+					ph->sendpacket(*i);
+
+				if (count > 1)
+					tt::sleep(pt::milliseconds(linedelay));
 			}
 
-			tt::sleep(pt::milliseconds(delay));
+			if (!single)
+				tt::sleep(pt::milliseconds(delay));
 		}
+		while (!single);
 	}
 
 	void mainform::OnSpamClicked(wxCommandEvent &e)
 	{
-		if (combobox->GetValue().IsEmpty())
+		if (e.IsChecked())
 		{
-			wxLogError("Please select a direction.");
-			return;
-		}
+			if (packettext->GetValue().IsEmpty())
+			{
+				wxLogError("Please enter a packet.");
+				e.Skip();
+				return;
+			}
 
-		bool recv = combobox->GetValue().Cmp("Recv") == 0;
+			if (combobox->GetValue().IsEmpty())
+			{
+				wxLogError("Please select a direction.");
+				e.Skip();
+				return;
+			}
+		}
 
 		if (hpacketspam.get())
 		{
@@ -677,47 +980,52 @@ namespace wxPloiter
 		}
 
 		if (!e.IsChecked())
-			return;
-
-		dword datspamdelay;
-
-		try   
 		{
-			datspamdelay = boost::lexical_cast<int>(spamdelay->GetValue().ToStdString());
-		}
-		catch(boost::bad_lexical_cast &e)
-		{
-			wxLogError("Invalid spam delay: %s.", wxString(e.what()));
+			sendpacket->Enable(true);
 			return;
 		}
 
-		try
-		{
-			boost::shared_array<maple::packet> lines(new maple::packet[packettext->GetNumberOfLines()]);
+		sendpacket->Enable(false);
+		injectpackets(true);
+	}
 
-			for (int i = 0; i < packettext->GetNumberOfLines(); i++)
-			{
-				if (recv)
-				{
-					// generate random recv header
-					dword dwHeader = utils::random::get()->getdword();
-					lines[i].append<dword>(dwHeader);
-					lines[i].append_data(packettext->GetLineText(i).ToStdString());
-				}
-				else
-					lines[i].append_data(packettext->GetLineText(i).ToStdString());
-				
-				log->i(tag, strfmt() << "OnSpamClicked: parsed " << combobox->GetValue().ToStdString() << " " << lines[i].tostring());
-			}
+	void mainform::OnFileSaveCfgClicked(wxCommandEvent &e)
+	{
+		wxLogStatus("Saving to wxPloiter.ini");
+		savecfg("wxPloiter.ini");
+		wxLogStatus("Idle.");
+	}
 
-			hpacketspam = boost::make_shared<boost::thread>(
-				boost::bind(&mainform::packetspamthread, this, lines, packettext->GetNumberOfLines(), datspamdelay, recv)
-			);
-		}
-		catch (std::exception &e)
-		{
-			wxLogError("Invalid packet: %s.", wxString(e.what()));
-		}
+	void mainform::OnFileSaveCfgAsClicked(wxCommandEvent &e)
+	{
+		wxLogStatus("Selecting save location");
+
+		// create and display open file dialog as a modal window
+		wxFileDialog sfd(this, "Save config as...", "", "", "INI files (*.ini)|*.ini",
+			wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+
+		if (sfd.ShowModal() == wxID_CANCEL)
+			return;
+
+		wxLogStatus("Saving...");
+		savecfg(sfd.GetPath());
+		wxLogStatus("Idle.");
+	}
+
+	void mainform::OnFileLoadCfgClicked(wxCommandEvent &e)
+	{
+		wxLogStatus("Selecting config file");
+
+		// create and display open file dialog as a modal window
+		wxFileDialog sfd(this, "Open config file", "", "", "INI files (*.ini)|*.ini",
+			wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+		if (sfd.ShowModal() == wxID_CANCEL)
+			return;
+
+		wxLogStatus("Saving...");
+		loadcfg(sfd.GetPath());
+		wxLogStatus("Idle.");
 	}
 
 	void mainform::OnFileHideMapleClicked(wxCommandEvent &e)
@@ -847,6 +1155,11 @@ namespace wxPloiter
 		}
 	}
 
+	void mainform::OnSettingsCopyPacketsClicked(wxCommandEvent &e)
+	{
+		copypackets = e.IsChecked();
+	}
+
 	/*
 	void mainform::OnPacketEnableSendBlockClicked(wxCommandEvent &e)
 	{
@@ -896,6 +1209,9 @@ namespace wxPloiter
 
 	void mainform::OnPacketSelected(wxListEvent &e)
 	{
+		if (!copypackets)
+			return;
+
 		long sel = packets->GetFirstSelected();
 		assert(sel != -1);
 

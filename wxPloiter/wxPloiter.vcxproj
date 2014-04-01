@@ -74,7 +74,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>BOTAN_DLL=;WIN32;_WINDOWS;WINVER=0x0400;__WXMSW__;wxUSE_GUI=1;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;_WINDOWS;_USRDLL;WXPLOITER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>APRILFOOLS;BOTAN_DLL=;WIN32;_WINDOWS;WINVER=0x0400;__WXMSW__;wxUSE_GUI=1;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;_WINDOWS;_USRDLL;WXPLOITER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(WXWIN)\include;$(WXWIN)\include\msvc;$(BOOST_include);$(BOTAN)\releasex86_static\include</AdditionalIncludeDirectories>
     </ClCompile>
@@ -93,9 +93,11 @@
   <ItemGroup>
     <ClCompile Include="aes.cpp" />
     <ClCompile Include="aobscan.cpp" />
+    <ClCompile Include="configmanager.cpp" />
     <ClCompile Include="crypt.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="headerdialog.cpp" />
+    <ClCompile Include="jewhookdialog.cpp" />
     <ClCompile Include="logging.cpp" />
     <ClCompile Include="mainform.cpp" />
     <ClCompile Include="mem.cpp" />
@@ -109,8 +111,10 @@
     <ClInclude Include="aes.hpp" />
     <ClInclude Include="aobscan.hpp" />
     <ClInclude Include="common.h" />
+    <ClInclude Include="configmanager.hpp" />
     <ClInclude Include="crypt.hpp" />
     <ClInclude Include="headerdialog.hpp" />
+    <ClInclude Include="jewhookdialog.hpp" />
     <ClInclude Include="logging.hpp" />
     <ClInclude Include="mainform.hpp" />
     <ClInclude Include="mem.h" />
