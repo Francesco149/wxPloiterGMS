@@ -53,7 +53,7 @@ namespace wxPloiter
 	const std::string app::logfile = "wxPloiter.log";
 	const std::string app::tag = "wxPloiter::app";
 	const wxString app::appname = "wxPloiter";
-	const wxString app::appver = "r2";
+	const wxString app::appver = "r3";
 
 	void app::rundll(HINSTANCE hInstance)
 	{
@@ -519,7 +519,9 @@ namespace wxPloiter
 
 		wxLogStatus("Idle.");
 
+#ifdef APRILFOOLS
 		jewhookdialog jh(this);
+#endif
 	}
 
 	void mainform::loadcfg(const char *file)

@@ -111,10 +111,6 @@ namespace wxPloiter
 		else
 		{
 			mainform::get()->enablerecv(true);
-
-			// TODO: fix recv injection
-			//mainform::get()->enablerecv(false);
-
 			msrecvpacket = reinterpret_cast<pfnrecvpacket>(utils::mem::getcall(recv.result()));
 		}
 
@@ -130,6 +126,9 @@ namespace wxPloiter
 		}
 
 		/*
+			NOTE: THIS DOESN'T WORK ANYMORE
+			TODO: fix send hook and find a method that is less prone to changes
+
 			AIRRIDE's virtualized send hook
 			55 8B EC 6A FF 68 ? ? ? ? 64 A1 00 00 00 00 50 83 EC ? 53 56 57 A1 ? ? ? ? 33 C5 50 ? ? ? 64 A3 00 00 00 00 ? ? ? 6A 00 E9
 
@@ -234,7 +233,7 @@ namespace wxPloiter
 		}
 		else
 		{
-			mssendhook = utils::mem::getjump(findsendhook.result() + 0x2D) + 0xE;
+			mssendhook = utils::mem::getjump(findsendhook.result() + 0x2D) + 0x13; // changed 2nd offset to 0x13, opcodes changed in v102
 			mssendhookret = reinterpret_cast<dword>(utils::mem::getjump(reinterpret_cast<byte *>(mssendhook)));
 		}
 
