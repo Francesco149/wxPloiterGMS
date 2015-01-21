@@ -1182,7 +1182,7 @@ namespace wxPloiter
 		wxMessageBox(
 			wxString::Format("%s\n\n"
 				"coded by Francesco \"Franc[e]sco\" Noferi\n"
-				"http://sabishiimedia.wordpress.com/\n"
+				"http://hnng.moe/\n"
 				"francesco1149@gmail.com", ver),
 			ver, wxICON_INFORMATION | wxOK, this
 		);

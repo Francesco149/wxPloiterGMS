@@ -79,7 +79,6 @@ namespace wxPloiter
 			{
 				initialized = true;
 				wsocklogging = true;
-				return;
 			}
 		}
 
