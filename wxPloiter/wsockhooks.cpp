@@ -21,10 +21,87 @@
 
 #include "mainform.hpp"
 #include "utils.hpp"
+#include "mem.h"
 
 #include <tchar.h>
-#include <boost/scoped_array.hpp>
 #include <iomanip>
+
+/*
+	// Winsock hooking method that is undetected by hackshield
+	// (prevents it from getting removed, but it's still still detected when you get in-game
+	// so you will still need a regular HSCRC + MSCRC bypass)
+	[Enable]
+	alloc(testhook, 64)
+	alloc(testhook2, 64)
+
+	WS2_32.send + 5:
+	push [ebp+14]
+	push [ebp+10]
+	push [ebp+0C]
+	push [ebp+08]
+	call testhook
+	nop
+	nop
+	nop
+	nop
+	nop
+
+	testhook:
+	// stdcall prolog
+	push ebp
+	mov ebp, esp
+	push [ebp+14]
+	push [ebp+10]
+	push [ebp+0C]
+	push [ebp+08]
+	call testhook2
+	pop ebp
+
+	// we need to inject the original code we overwrited so instead of ret 10
+	// we're gonna pop the 4 arguments and the return address here and
+	// just jump back later on
+	pop eax
+	pop eax
+	pop eax
+	pop eax
+	pop eax
+
+	// stack is now clean
+
+	// original asm
+	mov eax,[77416054]
+	sub esp,1C
+	push ebx
+	push esi
+	push edi
+	cmp dword ptr [77416078], 00
+	jne 773F1616
+	js 773E798D
+
+	jmp 773E792D
+
+	// normal stdcall hook func with the same signature as send
+	testhook2:
+	push ebp
+	mov ebp, esp
+	// do shit
+	pop ebp
+	ret 10
+
+	[Disable]
+	WS2_32.send + 5:
+	mov eax,[77416054]
+	sub esp,1C
+	push ebx
+	push esi
+	push edi
+	cmp dword ptr [77416078], 00
+	jne 773F1616
+	js 773E798D
+
+	dealloc(testhook)
+	dealloc(testhook2)
+*/
 
 namespace wxPloiter
 {
@@ -43,9 +120,16 @@ namespace wxPloiter
 	}
 
 	wsockhooks::wsockhooks()
-		: pconnect(::connect), 
+		: 
+#ifndef STEALTH_HOOKS
+		  pconnect(::connect), 
 		  psend(::send), 
 		  precv(::recv), 
+#else
+		  pconnect(reinterpret_cast<pfnconnect>(_pconnect)), 
+		  psend(reinterpret_cast<pfnsend>(_psend)), 
+		  precv(reinterpret_cast<pfnrecv>(_precv)), 
+#endif
 		  log(utils::logging::get()),
 		  transition(false), 
 		  targetsocket(NULL),
@@ -54,30 +138,35 @@ namespace wxPloiter
 		// get actual addresses of send, recv and connect.
 		// local ones might be messed up (local recv didn't work for example)
 		HMODULE hws2_32 = GetModuleHandle(_T("ws2_32.dll"));
-		pconnect = reinterpret_cast<pfnconnect>(GetProcAddress(hws2_32, "connect"));
-		psend = reinterpret_cast<pfnsend>(GetProcAddress(hws2_32, "send"));
-		precv = reinterpret_cast<pfnrecv>(GetProcAddress(hws2_32, "recv"));
+		pfnconnect realconnect = reinterpret_cast<pfnconnect>(GetProcAddress(hws2_32, "connect"));
+		pfnsend realsend = reinterpret_cast<pfnsend>(GetProcAddress(hws2_32, "send"));
+		pfnrecv realrecv = reinterpret_cast<pfnrecv>(GetProcAddress(hws2_32, "recv"));
 
-		if (!pconnect)
+		if (!realconnect)
 		{
 			log->w(tag, "wsockhooks: failed to get the real address of connect(). "
 				"decryption might fail to grab the cypher keys.");
-			pconnect = ::connect;
+			realconnect = ::connect;
 		}
 
-		if (!psend)
+		if (!realsend)
 		{
 			log->w(tag, "wsockhooks: failed to get the real address of send(). "
 				"the send hook might not work.");
-			psend = ::send;
+			realsend = ::send;
 		}
 
-		if (!precv)
+		if (!realrecv)
 		{
 			log->w(tag, "wsockhooks: failed to get the real address of recv(). "
 				"the recv hook might not work.");
-			precv = ::recv;
+			realrecv = ::recv;
 		}
+
+#ifndef STEALTH_HOOKS
+		pconnect = realconnect;
+		psend = realsend;
+		precv = realrecv;
 
 		if (!detours::hook(true, reinterpret_cast<PVOID *>(&pconnect), connect_hook))
 		{
@@ -99,6 +188,49 @@ namespace wxPloiter
 			log->e(tag, "wsockhooks: could not hook send() and recv(). logging will not work.");
 			return;
 		}
+#else
+		connecthookret = reinterpret_cast<dword>(realconnect) + 0x13;
+		sendjump1 = reinterpret_cast<dword>(utils::mem::getjump(reinterpret_cast<byte *>(realsend) + 0x15));
+		sendhookret = reinterpret_cast<dword>(realsend) + 0x1B;
+		sendmov1 = *reinterpret_cast<dword *>(reinterpret_cast<byte *>(realsend) + 0x6);
+		sendcmp1 = *reinterpret_cast<dword *>(reinterpret_cast<byte *>(realsend) + 0x11);
+		recvjump1 = reinterpret_cast<dword>(utils::mem::getjump(reinterpret_cast<byte *>(realrecv) + 0x15));
+		recvhookret = reinterpret_cast<dword>(realrecv) + 0x1B;
+
+		byte connect_bytes[14] = {
+			0xFF, 0x75, 0x10, // push [ebp+10]
+			0xFF, 0x75, 0x0C, // push [ebp+0C]
+			0xFF, 0x75, 0x08, // push [ebp+08]
+			0xE8, 0x00, 0x00, 0x00, 0x00 // call ????????
+		};
+		utils::mem::makepagewritable(reinterpret_cast<byte *>(realconnect) + 5, 14);
+		memcpy_s(reinterpret_cast<byte *>(realconnect) + 5, 14, connect_bytes, 14);
+		utils::mem::writecall(reinterpret_cast<byte *>(realconnect) + 5 + 9, connect_relay);
+
+		byte send_bytes[22] = {
+			0xFF, 0x75, 0x14, // push [ebp+14]
+			0xFF, 0x75, 0x10, // push [ebp+10]
+			0xFF, 0x75, 0x0C, // push [ebp+0C]
+			0xFF, 0x75, 0x08, // push [ebp+08]
+			0xE8, 0x00, 0x00, 0x00, 0x00, // call ????????
+			0x90, 0x90, 0x90, 0x90, 0x90 // nop nop nop...
+		};
+		utils::mem::makepagewritable(reinterpret_cast<byte *>(realsend) + 5, 22);
+		memcpy_s(reinterpret_cast<byte *>(realsend) + 5, 22, send_bytes, 22);
+		utils::mem::writecall(reinterpret_cast<byte *>(realsend) + 5 + 12, send_relay);
+
+		byte recv_bytes[22] = {
+			0xFF, 0x75, 0x14, // push [ebp+14]
+			0xFF, 0x75, 0x10, // push [ebp+10]
+			0xFF, 0x75, 0x0C, // push [ebp+0C]
+			0xFF, 0x75, 0x08, // push [ebp+08]
+			0xE8, 0x00, 0x00, 0x00, 0x00, // call ????????
+			0x90, 0x90, 0x90, 0x90, 0x90 // nop nop nop...
+		};
+		utils::mem::makepagewritable(reinterpret_cast<byte *>(realrecv) + 5, 22);
+		memcpy_s(reinterpret_cast<byte *>(realrecv) + 5, 22, recv_bytes, 22);
+		utils::mem::writecall(reinterpret_cast<byte *>(realrecv) + 5 + 12, recv_relay);
+#endif
 
 		hooked = true;
 	}
@@ -107,6 +239,167 @@ namespace wxPloiter
 	{
 		// empty
 	}
+
+#ifdef STEALTH_HOOKS
+	dword wsockhooks::connecthookret = 0;
+
+	void __declspec(naked) wsockhooks::_pconnect()
+	{
+		__asm
+		{
+			mov edi,edi
+			push ebp
+			mov ebp,esp
+
+			sub esp,0x14
+			push ebx
+			push esi
+			push edi
+			lea eax,[ebp-0x14]
+			push eax
+			lea eax,[ebp-0x10]
+			push eax
+
+			jmp [connecthookret]
+		}
+	}
+
+	dword wsockhooks::sendjump1 = 0;
+	dword wsockhooks::sendhookret = 0;
+	dword wsockhooks::sendmov1 = 0;
+	dword wsockhooks::sendcmp1 = 0;
+
+	void __declspec(naked) wsockhooks::_psend()
+	{
+		__asm
+		{
+			mov edi,edi
+			push ebp
+			mov ebp,esp
+
+			mov eax,dword ptr [sendmov1]
+			mov eax,[eax]
+			sub esp,0x1C
+			push ebx
+			push esi
+			push edi
+			cmp eax,[sendcmp1]
+			jne crap1
+			jmp [sendhookret]
+
+crap1:
+			jmp [sendjump1]
+		}
+	}
+
+	dword wsockhooks::recvjump1 = 0;
+	dword wsockhooks::recvhookret = 0;
+
+	void __declspec(naked) wsockhooks::_precv()
+	{
+		__asm
+		{
+			mov edi,edi
+			push ebp
+			mov ebp,esp
+
+			mov eax,dword ptr [sendmov1]
+			mov eax,[eax]
+			sub esp,0x1C
+			push ebx
+			push esi
+			push edi
+			cmp eax,[sendcmp1]
+			je crap1
+			jmp [recvhookret]
+
+crap1:
+			jmp [recvjump1]
+		}
+	}
+
+	void __declspec(naked) wsockhooks::connect_relay()
+	{
+		// hooking method is explained in send_relay
+		__asm
+		{
+			push ebp
+			mov ebp, esp
+
+			push [ebp+0x10]
+			push [ebp+0x0C]
+			push [ebp+0x08]
+			call connect_hook
+
+			pop ebp
+
+			add esp, 0x10
+
+			pop ebp
+
+			ret 0x0C
+		}
+	}
+
+	void __declspec(naked) wsockhooks::send_relay()
+	{
+		__asm
+		{
+			// stdcall prolog
+			push ebp
+			mov ebp, esp
+
+			// push params and call send hook
+			push [ebp+0x14]
+			push [ebp+0x10]
+			push [ebp+0x0C]
+			push [ebp+0x08]
+			call send_hook
+
+			// stdcall epilog of send_relay
+			pop ebp
+
+			// we need to inject code to make send() return now so instead of ret 10
+			// we're gonna pop the 4 arguments and the return address here so that the 
+			// status of the stack is as if send_relay returned, then we're gonna execute 
+			// the epilog of send() and ret
+
+			add esp,0x14 // pop 5 times (4 args + ret addy, same as doing ret 0x10)
+
+			// stack is now clean as if send_relay returned
+
+			// stdcall epilog of WS2_32.send
+			pop ebp
+
+			// return value is already in eax (returned by send_hook)
+			ret 0x10
+		}
+	}
+
+	void __declspec(naked) wsockhooks::recv_relay()
+	{
+		// hooking method is explained in send_relay
+		__asm
+		{
+			push ebp
+			mov ebp, esp
+
+			push [ebp+0x14]
+			push [ebp+0x10]
+			push [ebp+0x0C]
+			push [ebp+0x08]
+			call recv_hook
+
+			pop ebp
+
+			add esp, 0x14
+
+			pop ebp
+
+			ret 0x10
+		}
+	}
+#endif
 
 	bool wsockhooks::ishooked()
 	{
@@ -121,6 +414,7 @@ namespace wxPloiter
 
 	int WINAPI wsockhooks::send_hook(_In_ SOCKET s, _In_ const char *buf, _In_ int len, _In_ int flags)
 	{
+		//get()->log->i(tag, strfmt() << "send_hook(" << s << ", " << reinterpret_cast<dword>(buf) << ", " << len << ", " << flags << ")");
 		return get()->send(s, buf, len, flags);
 	}
 
@@ -137,17 +431,20 @@ namespace wxPloiter
 		// store the real port
 		u_short port = ntohs(sin.sin_port);
 
-		if (port == 8484 || port == 8585)
+		// TODO: let the user set the ports
+		if (port == 8484 || port == 8586)
 		{
+#ifdef WINSOCK_MUTEX
 			mutex::scoped_lock lock(sendmut);
 			mutex::scoped_lock lock2(recvmut);
+#endif
 
 			targetsocket = s;
 			transition = true;
 
 			wxString serv = 
 				port == 8484 ? "LoginServer" :
-				port == 8585 ? "ChannelServer" : wxString::Format("Unknown (%hu)", port);
+				port == 8586 ? "ChannelServer" : wxString::Format("Unknown (%hu)", port);
 
 			recvcrypt.reset();
 			sendcrypt.reset();
@@ -165,22 +462,32 @@ namespace wxPloiter
 
 	int wsockhooks::send(_In_ SOCKET s, _In_ const char *buf, _In_ int len, _In_ int flags)
 	{
+#ifdef WINSOCK_MUTEX
 		mutex::scoped_lock lock(sendmut);
+#endif
 
-		if (s == targetsocket)
+		if (s != targetsocket)
+			return psend(s, buf, len, flags);
+
+		bool dec = false;
+		const byte *pcbbuf = reinterpret_cast<const byte *>(buf);
+		byte *pbbuf = const_cast<byte *>(pcbbuf);
+
+		boost::shared_ptr<maple::packet> p;
+
+		sendbuf.insert(sendbuf.end(), pbbuf, pbbuf + len);
+
+		//log->i(tag, strfmt() << "send@0x" << _ReturnAddress() << " to " << s);
+
+		while (sendbuf.size() >= header_size)
 		{
-			bool dec = false;
-			const byte *pcbbuf = reinterpret_cast<const byte *>(buf);
-			byte *pbbuf = const_cast<byte *>(pcbbuf);
-			// TODO: fix const issues in the packet class -_-
+			word actuallen = maple::crypt::length(&sendbuf[0]);
 
-			boost::shared_ptr<maple::packet> p;
-
-			if (!sendcrypt.get() || !sendcrypt->check(pbbuf))
-				p.reset(new maple::packet(pcbbuf, len));
+			if (!sendcrypt.get() || actuallen < 2 || !sendcrypt->check(&sendbuf[0]))
+				p.reset(new maple::packet(&sendbuf[0], len));
 			else
 			{
-				p.reset(new maple::packet(pcbbuf + header_size, maple::crypt::length(pbbuf)));
+				p.reset(new maple::packet(&sendbuf[0] + header_size, actuallen));
 				sendcrypt->decrypt(p->raw(), p->size());
 				sendcrypt->nextiv();
 
@@ -188,20 +495,8 @@ namespace wxPloiter
 
 				if (safeheaderlist::getblockedsend()->contains(*pheader))
 				{
-					// this is probabilly not gonna work. 
-					// TODO: keep track of the client and the server's cyphers and skip the packet completely
-
-					// block packet
-					*pheader = BLOCKED_HEADER;
-
-					// re-encrypt modified packet and send it
-					size_t cbenc = p->size() + header_size;
-					boost::scoped_array<byte> bbuf(new byte[cbenc]);
-					sendcrypt->makeheader(bbuf.get(), p->size());
-					std::copy(p->begin(), p->end(), bbuf.get() + header_size);
-					sendcrypt->encrypt(bbuf.get() + header_size, p->size());
-
-					return psend(s, reinterpret_cast<const char *>(bbuf.get()), cbenc, 0);
+					// TODO: buffer all send/recv data and process it later on from another thread so that
+					// I can block packets before part of them is already sent
 				}
 
 				dec = true;
@@ -209,10 +504,10 @@ namespace wxPloiter
 
 			mainform::get()->queuepacket(p, mainform::wxID_PACKET_SEND, dec, NULL);
 
-			/*
-			log->i(tag, strfmt() << "send@0x" << _ReturnAddress() << 
-				" to " << s << ", " << (dec ? "decrypted" : "encrypted") << ": " << p->tostring());
-			*/
+			//log->i(tag, strfmt() << (dec ? "decrypted" : "encrypted") << ": " << p->tostring());
+
+			sendbuf.erase(sendbuf.begin(), sendbuf.begin() + p->size());
+			sendbuf.erase(sendbuf.begin(), sendbuf.begin() + header_size);
 		}
 
 		return psend(s, buf, len, flags);
@@ -220,7 +515,9 @@ namespace wxPloiter
 
 	int wsockhooks::recv(_In_ SOCKET s, _Out_ char *buf, _In_ int len, _In_ int flags)
 	{
+#ifdef WINSOCK_MUTEX
 		mutex::scoped_lock lock(recvmut);
+#endif
 
 		const byte *pcbbuf = reinterpret_cast<const byte *>(buf);
 		int res = precv(s, buf, len, flags);
@@ -239,7 +536,9 @@ namespace wxPloiter
 			// tt = server type
 			try
 			{
+#ifdef WINSOCK_MUTEX
 				mutex::scoped_lock lock2(sendmut);
+#endif
 
 				word maple_version = 0;
 				std::string unknown;
@@ -282,45 +581,62 @@ namespace wxPloiter
 
 		else if (res > 0 && s == targetsocket)
 		{
-			bool dec = false;
+			//log->i(tag, strfmt() << "recv@0x" << _ReturnAddress() << 
+				//" from " << s << " [" << res << "/" << len << " bytes]");
+
 			byte *pbbuf = reinterpret_cast<byte *>(buf);
 			boost::shared_ptr<maple::packet> p;
 
-			if (!recvcrypt.get() || !recvcrypt->check(pbbuf))
-				p.reset(new maple::packet(pcbbuf, res));
-			else
+			recvbuf.insert(recvbuf.end(), pbbuf, pbbuf + res);
+
+			while (recvbuf.size() >= header_size)
 			{
-				p.reset(new maple::packet(pbbuf + header_size, maple::crypt::length(pbbuf)));
-				recvcrypt->decrypt(p->raw(), p->size());
-				recvcrypt->nextiv();
+				bool dec = false;
+				word actuallen = maple::crypt::length(&recvbuf[0]);
 
-				word *pheader = reinterpret_cast<word *>(p->raw());
-
-				if (safeheaderlist::getblockedrecv()->contains(*pheader))
+				if (!recvcrypt.get() || actuallen < 2 || !recvcrypt->check(&recvbuf[0]))
 				{
-					// block packet
-					*pheader = BLOCKED_HEADER;
+					p.reset(new maple::packet(pcbbuf, res));
+					//log->i(tag, strfmt() << "encrypted, size=" << p->size() << ": " << p->tostring());
+					mainform::get()->queuepacket(p, mainform::wxID_PACKET_RECV, dec, NULL);
+				}
+				else
+				{
+					if (actuallen > recvbuf.size() - header_size)
+					{
+						//log->i(tag, "waiting for more data");
+						break;
+					}
 
-					// re-encrypt modified packet and send it
-					// TODO: skip the packet completely and compensate for the messed up recv cypher
-					size_t cbenc = p->size() + header_size;
-					recvcrypt->makeheader(reinterpret_cast<byte *>(buf), p->size());
-					std::copy(p->begin(), p->end(), buf + header_size);
-					recvcrypt->encrypt(reinterpret_cast<byte *>(buf + header_size), p->size());
+					p.reset(new maple::packet(&recvbuf[0] + header_size, actuallen));
+					recvcrypt->decrypt(p->raw(), p->size());
+					recvcrypt->nextiv();
 
-					return res;
+					word *pheader = reinterpret_cast<word *>(p->raw());
+
+					if (safeheaderlist::getblockedrecv()->contains(*pheader))
+					{
+						// block packet
+						*pheader = BLOCKED_HEADER;
+
+						// re-encrypt modified packet and send it
+						// TODO: skip the packet completely and compensate for the messed up recv cypher
+						size_t cbenc = p->size() + header_size;
+						recvcrypt->makeheader(pbbuf + res - recvbuf.size(), p->size());
+						std::copy(p->begin(), p->end(), pbbuf + res - recvbuf.size() + header_size);
+						recvcrypt->encrypt(pbbuf + res - recvbuf.size() + header_size, p->size());
+					}
+					else
+					{
+						dec = true;
+						//log->i(tag, strfmt() << "decrypted, size=" << p->size() << ": " << p->tostring());
+						mainform::get()->queuepacket(p, mainform::wxID_PACKET_RECV, dec, NULL);
+					}
 				}
 
-				dec = true;
+				recvbuf.erase(recvbuf.begin(), recvbuf.begin() + p->size());
+				recvbuf.erase(recvbuf.begin(), recvbuf.begin() + header_size);
 			}
-
-			mainform::get()->queuepacket(p, mainform::wxID_PACKET_RECV, dec, NULL);
-
-			/*
-			log->i(tag, strfmt() << "recv@0x" << _ReturnAddress() << 
-				" from " << s << " [" << res << "/" << len << " bytes], " << 
-				(dec ? "decrypted" : "encrypted") << ": " << p->tostring());
-			*/
 		}
 
 		return res;

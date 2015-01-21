@@ -70,6 +70,9 @@ namespace mem
 
 	byte *getjump(byte *address)
 	{
+		if (*address == 0x0F) // conditional jmp
+			return (address + 6 + *reinterpret_cast<int *>(address + 2));
+
 		return getopcodedestination(0xE9, address);
 	}
 
@@ -91,7 +94,7 @@ namespace mem
 	void writeopcodewithdistance(byte opcode, byte *address, void *destination, size_t nops)
 	{
 		makepagewritable(address, 5 + nops);
-		*address = 0xE9;
+		*address = opcode;
 		*reinterpret_cast<dword *>(address + 1) = jmp(address, destination);
 		memset(address + 5, 0x90, nops);
 	}

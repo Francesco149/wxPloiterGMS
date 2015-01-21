@@ -25,7 +25,11 @@
 
 #include <string>
 #include <Windows.h>
+#include <Winsock2.h>
 #include <boost/shared_ptr.hpp>
+#include <vector>
+
+#define STEALTH_HOOKS
 
 namespace wxPloiter
 {
@@ -47,9 +51,14 @@ namespace wxPloiter
 		static boost::shared_ptr<wsockhooks> inst;
 
 		// these should prevent concurrent packets from messing up the keys
+#ifdef WINSOCK_MUTEX
 		typedef boost::mutex mutex;
 		mutex sendmut;
 		mutex recvmut;
+#endif
+
+		std::vector<byte> recvbuf;
+		std::vector<byte> sendbuf;
 
 		// trampoline typedefs
 		typedef int (WINAPI *pfnconnect)
@@ -61,10 +70,29 @@ namespace wxPloiter
 		typedef int (WINAPI *pfnrecv)
 			(_In_ SOCKET s, _Out_ char *buf, _In_ int len, _In_ int flags);
 
+		// microsoft pls stop using those ugly naming conventions
+
 		// trampolines
 		pfnconnect pconnect;
 		pfnsend psend;
 		pfnrecv precv;
+
+#ifdef STEALTH_HOOKS
+		static dword connecthookret;
+		static dword sendjump1;
+		static dword sendhookret;
+		static dword sendmov1;
+		static dword sendcmp1;
+		static dword recvjump1;
+		static dword recvhookret;
+
+		static void _pconnect();
+		static void _psend();
+		static void _precv();
+		static void connect_relay();
+		static void send_relay();
+		static void recv_relay();
+#endif
 
 		// hooks
 		static int WINAPI connect_hook(_In_ SOCKET s, _In_ const struct sockaddr *name, _In_ int namelen);
@@ -79,6 +107,7 @@ namespace wxPloiter
 		boost::shared_ptr<maple::crypt> recvcrypt; // recv decoder
 
 		wsockhooks();
+
 		int connect(_In_ SOCKET s, _In_ const struct sockaddr *name, _In_ int namelen);
 		int send(_In_ SOCKET s, _In_ const char *buf, _In_ int len, _In_ int flags);
 		int recv(_In_ SOCKET s, _Out_ char *buf, _In_ int len, _In_ int flags);

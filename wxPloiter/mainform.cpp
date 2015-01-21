@@ -53,7 +53,7 @@ namespace wxPloiter
 	const std::string app::logfile = "wxPloiter.log";
 	const std::string app::tag = "wxPloiter::app";
 	const wxString app::appname = "wxPloiter";
-	const wxString app::appver = "r3";
+	const wxString app::appver = "r4-winsock";
 
 	void app::rundll(HINSTANCE hInstance)
 	{
@@ -318,8 +318,8 @@ namespace wxPloiter
 		  log(utils::logging::get()),
 		  hInstance(hInstance), // used for LoadIcon
 		  packets(NULL), // packet listview
-		  logsend(false), // log send toggle
-		  logrecv(false), // log recv toggle
+		  logsend(true), // log send toggle
+		  logrecv(true), // log recv toggle
 		  copypackets(true), // if true, the PE will automatically copy clicked packets to the textbox
 		  ascroll(NULL), // autoscroll menu entry
 		  loggingmenu(NULL), // logging menu
@@ -372,8 +372,12 @@ namespace wxPloiter
 		ascroll = menu->AppendCheckItem(wxID_LOGGING_AUTOSCROLL, "Autoscroll");
 		ascroll->Check(true);
 		menu->Append(wxID_LOGGING_CLEAR, "Clear");
-		menu->AppendCheckItem(wxID_LOGGING_SEND, "Log send");
-		menu->AppendCheckItem(wxID_LOGGING_RECV, "Log recv");
+		//menu->AppendCheckItem(wxID_LOGGING_HOOKSEND, "Hook send");
+		//menu->AppendCheckItem(wxID_LOGGING_HOOKRECV, "Hook recv");
+		wxMenuItem *logitem = menu->AppendCheckItem(wxID_LOGGING_SEND, "Log send");
+		logitem->Check();
+		logitem = menu->AppendCheckItem(wxID_LOGGING_RECV, "Log recv");
+		logitem->Check();
 		mbar->Append(menu, "Logging"); // add menu to the menu bar
 		loggingmenu = menu;
 
@@ -486,14 +490,16 @@ namespace wxPloiter
 			wxStaticText *begging0 = new wxStaticText(basepanel, wxID_ANY, "Like my releases?");
 			wxHyperlinkCtrl *begging1 = new wxHyperlinkCtrl(basepanel, wxID_ANY, "donate", 
 				"https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=5E289LJ5UUG3Q");
+			/*
 			wxStaticText *begging2 = new wxStaticText(basepanel, wxID_ANY, "or");
 			wxHyperlinkCtrl *begging3 = new wxHyperlinkCtrl(basepanel, wxID_ANY, "buy my cheap meso", 
 				"https://ccplz.net/threads/s-meso-16%E2%82%AC-b-taxes-covered-paypal-btc-ltc-doge.60888/");
+			*/
 
 			begsizer->Add(begging0, 0, wxRIGHT, 5);
-			begsizer->Add(begging1, 0, wxRIGHT, 5);
-			begsizer->Add(begging2, 0, wxRIGHT, 5);
-			begsizer->Add(begging3, 0, wxRIGHT, 0);
+			begsizer->Add(begging1, 0, wxRIGHT, 0);
+			//begsizer->Add(begging2, 0, wxRIGHT, 5);
+			//begsizer->Add(begging3, 0, wxRIGHT, 0);
 		}
 
 		basesizer->Add(packetsbox, 1, wxALL | wxEXPAND, 10);

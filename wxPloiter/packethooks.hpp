@@ -38,7 +38,8 @@ namespace wxPloiter
 		void sendpacket(maple::packet &p); // injects a send packet
 		void recvpacket(maple::packet &p); // injects a recv packet
 		bool isusingwsock();
-		void enablesendblock(bool enabled);
+		void hooksend(bool enabled);
+		void hookrecv(bool enabled);
 
 	protected:
 		static const std::string tag;
@@ -72,7 +73,7 @@ namespace wxPloiter
 
 		static dword _stdcall handlepacket(dword isrecv, void *retaddy, int size, byte pdata[]);
 		static void __fastcall sendblockhook(void *instance, void *edx, maple::outpacket* ppacket);
-		static void sendhook();
+		static void __fastcall sendhook(void *instance, void *edx, maple::outpacket* ppacket); // TODO: this is a temporary non bypassless hook
 		static void recviathook();
 		static void recvhook();
 
