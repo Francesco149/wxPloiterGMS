@@ -37,13 +37,15 @@ namespace wxPloiter
 		bool isinitialized(); // returns false if the class was unable to find the packet funcs
 		void sendpacket(maple::packet &p); // injects a send packet
 		void recvpacket(maple::packet &p); // injects a recv packet
-		bool isusingwsock();
 		void hooksend(bool enabled);
 		void hookrecv(bool enabled);
 
 	protected:
 		static const std::string tag;
 		static boost::shared_ptr<packethooks> inst;
+
+		static void packethooks::findvirtualizedhook(void *pmaplebase, size_t maplesize, const char *name, 
+			void *function, void **phook, dword *phookret);
 
 		// function signatures of internal maplestory send/recv funcs
 		// since we can't use __thiscall directly, we have to use __fastcall and add a placeholder EDX param
@@ -59,21 +61,18 @@ namespace wxPloiter
 
 		boost::shared_ptr<utils::logging> log;
 		bool initialized;
-		bool wsocklogging;
 		static dword maplethreadid; // thread that created the maplestory wnd
 		static void **ppcclientsocket; // pointer to the CClientSocket instance
 		static pfnsendpacket mssendpacket; // maplestory's internal send func
 		static void *mssendhook; // some virtualized code related to mssendpacket
 		static dword mssendhookret;
 		static pfnrecvpacket msrecvpacket; // maplestory's internal recv func
-		static dword *recviat; // pointer for recv iat hooking
-		static dword originalrecviat;
-		static dword recviatret; // return addy of the iat hook
+		static void* msrecvhook; // some virtualized code related to msrecvpacket
+		static dword msrecvhookret;
 		static void *someretaddy; // for ret addy spoofing
 
 		static dword _stdcall handlepacket(dword isrecv, void *retaddy, int size, byte pdata[]);
 		static void sendhook();
-		static void recviathook();
 		static void recvhook();
 
 		packethooks();

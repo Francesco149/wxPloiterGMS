@@ -14,7 +14,7 @@
     <ProjectGuid>{2C8BAC1D-B028-4557-9FBB-AE5935FBB79A}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>wxPloiter</RootNamespace>
-    <ProjectName>wxPloiterPublic</ProjectName>
+    <ProjectName>wxPloiterPublicGMS</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -76,7 +76,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;BOTAN_DLL=;WIN32;_WINDOWS;WINVER=0x0400;__WXMSW__;wxUSE_GUI=1;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;_WINDOWS;_USRDLL;WXPLOITER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(WXWIN)\include;$(WXWIN)\include\msvc;$(BOOST_include);$(BOTAN)\releasex86_static\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(WXWIN)\include;$(WXWIN)\include\msvc;$(BOOST_include)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -84,17 +84,15 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>$(WXWIN)\lib\vc_lib;$(BOOST_lib)\x86;$(BOTAN)\releasex86_static\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>wxmsw29u_core.lib;botan.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wxmsw29u_core.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(WXWIN)\include</AdditionalIncludeDirectories>
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="aes.cpp" />
     <ClCompile Include="aobscan.cpp" />
     <ClCompile Include="configmanager.cpp" />
-    <ClCompile Include="crypt.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="headerdialog.cpp" />
     <ClCompile Include="jewhookdialog.cpp" />
@@ -105,14 +103,11 @@
     <ClCompile Include="packethooks.cpp" />
     <ClCompile Include="safeheaderlist.cpp" />
     <ClCompile Include="utils.cpp" />
-    <ClCompile Include="wsockhooks.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="aes.hpp" />
     <ClInclude Include="aobscan.hpp" />
     <ClInclude Include="common.h" />
     <ClInclude Include="configmanager.hpp" />
-    <ClInclude Include="crypt.hpp" />
     <ClInclude Include="headerdialog.hpp" />
     <ClInclude Include="jewhookdialog.hpp" />
     <ClInclude Include="logging.hpp" />
@@ -124,7 +119,6 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="safeheaderlist.hpp" />
     <ClInclude Include="utils.hpp" />
-    <ClInclude Include="wsockhooks.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />

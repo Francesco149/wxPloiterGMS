@@ -30,7 +30,6 @@
 #include <wx/button.h>
 
 #include <boost/shared_array.hpp>
-#include <botan/botan.h>
 #include <boost/thread.hpp>
 
 #include <list>
@@ -56,7 +55,6 @@ namespace wxPloiter
 	protected:
 		static const std::string logfile;
 		static const std::string tag;
-		Botan::LibraryInitializer cryptoinit;
 		boost::shared_ptr<utils::logging> log;
 		HINSTANCE hInstance;
 	};

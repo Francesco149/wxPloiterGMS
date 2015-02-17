@@ -30,12 +30,6 @@
     <ClCompile Include="packet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="aes.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="crypt.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="aobscan.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -43,9 +37,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="safeheaderlist.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="wsockhooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="packethooks.cpp">
@@ -80,9 +71,6 @@
     <ClInclude Include="common.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="crypt.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="aobscan.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -93,12 +81,6 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="packetstruct.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="aes.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="wsockhooks.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="packethooks.hpp">

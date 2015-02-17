@@ -80,7 +80,6 @@ namespace wxPloiter
 
 	app::app(HINSTANCE hInstance)
 		: wxApp(), 
-		  cryptoinit("thread_safe=true"), // init botan (only used in winsock mode)
 		  hInstance(hInstance)
 	{
 		// empty
@@ -123,13 +122,13 @@ namespace wxPloiter
 		utils::random::init();
 
 		// init hooks
-		if (!packethooks::get()->isinitialized())
-			wxLogWarning("Could not hook some or all of the packet functions. Logging / sending might not work.");
-		
-		if (!packethooks::get()->isusingwsock()) {
-			packethooks::get()->hooksend(true);
-			packethooks::get()->hookrecv(true);
+		if (!packethooks::get()->isinitialized()) {
+			wxLogWarning("Could not hook some or all of the packet functions.");
+			TerminateProcess(GetCurrentProcess(), 0);
 		}
+		
+		packethooks::get()->hooksend(true);
+		packethooks::get()->hookrecv(true);
 
 		return true;
 	}
@@ -836,12 +835,7 @@ namespace wxPloiter
 
 		packets->push_back(4, 
 			wxString(direction), 
-
-			packethooks::get()->isusingwsock() ? 
-				wxString(e.IsDecrypted() ? "no" : "yes") 
-			: 
-				wxString::Format("0x%08X", reinterpret_cast<dword>(e.GetReturnAddress())),
-
+			wxString::Format("0x%08X", reinterpret_cast<dword>(e.GetReturnAddress())),
 			wxString::Format("%lu", p->size()), 
 			wxString(p->tostring())
 		);
