@@ -197,6 +197,7 @@ namespace wxPloiter
 		recvjump1 = reinterpret_cast<dword>(utils::mem::getjump(reinterpret_cast<byte *>(realrecv) + 0x15));
 		recvhookret = reinterpret_cast<dword>(realrecv) + 0x1B;
 
+		/*
 		byte connect_bytes[14] = {
 			0xFF, 0x75, 0x10, // push [ebp+10]
 			0xFF, 0x75, 0x0C, // push [ebp+0C]
@@ -230,6 +231,7 @@ namespace wxPloiter
 		utils::mem::makepagewritable(reinterpret_cast<byte *>(realrecv) + 5, 22);
 		memcpy_s(reinterpret_cast<byte *>(realrecv) + 5, 22, recv_bytes, 22);
 		utils::mem::writecall(reinterpret_cast<byte *>(realrecv) + 5 + 12, recv_relay);
+		*/
 #endif
 
 		hooked = true;

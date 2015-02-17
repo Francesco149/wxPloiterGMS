@@ -29,7 +29,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/bind.hpp>
 
-#define FORCE_WINSOCK 1
+#define FORCE_WINSOCK 0
 #define FORCE_NOSEND 0
 #define FORCE_NORECV 0
 
@@ -130,13 +130,83 @@ namespace wxPloiter
 
 		if (!FORCE_WINSOCK)
 		{
-			// credits to AIRRIDE for the IAT hooking method and the send hooking method
-			utils::mem::aobscan findrecvhook("8B 7C 24 ? 8B CF C7 44 24 ? ? ? ? ? E8 ? ? ? ? 0F B7 D8", pmaplebase, maplesize);
+			bool wsockfallback = false;
 
-			if (!findrecvhook.result())
+			do {
+				// credits to AIRRIDE for the IAT hooking method and the send hooking method
+				utils::mem::aobscan findrecvhook("8B 7C 24 ? 8B CF C7 44 24 ? ? ? ? ? E8 ? ? ? ? 0F B7 D8", pmaplebase, maplesize);
+
+				if (!findrecvhook.result())
+				{
+					wxLogWarning("Could not find the IAT pointer for recv. Falling back to winsock hooks.");
+					wsockfallback = true;
+					break;
+				}
+				else
+				{
+					recviat = *reinterpret_cast<dword **>(findrecvhook.result() - 4);
+					recviatret = reinterpret_cast<dword>(findrecvhook.result());
+				}
+
+				byte *iterator = reinterpret_cast<byte *>(mssendpacket);
+				bool found = false;
+
+				// credits to AIRRIDE for the virtualized hook method
+				for (int i = 0; i < 100; i++) 
+				{
+					if (*iterator == 0xE9) // jmp to virtualized code
+					{
+						log->i(tag, strfmt() << "jump to virtualized send code at 0x" << reinterpret_cast<void *>(iterator));
+						found = true;
+						break;
+					}
+
+					iterator++;
+				}
+
+				if (!found) {
+					wxLogWarning("Could not find jump to vm code for the virtualized send hook. Falling back to winsock hooks.");
+					wsockfallback = true;
+					break;
+				}
+
+				iterator = utils::mem::getjump(iterator);
+				log->i(tag, strfmt() << "virtualized send code at 0x" << reinterpret_cast<void *>(iterator));
+
+				found = false;
+				for (int i = 0; i < 1000; i++) {
+					if (*iterator == 0xE9 || *iterator == 0xE8) // hookable jmp or call
+					{
+						// todo use an actual disassembler instead of this ghetto method
+						void *dst = (*iterator == 0xE8 ? utils::mem::getcall : utils::mem::getjump)(iterator);
+						if (dst >= pmaplebase && dst <= reinterpret_cast<byte *>(pmaplebase) + maplesize)
+						{
+							log->i(tag, strfmt() << "virtualized send hook at 0x" << reinterpret_cast<void *>(iterator));
+							found = true;
+							break;
+						}
+					}
+
+					iterator++;
+				}
+
+				if (!found) {
+					wxLogWarning("Could not find hookable jump or call in the "
+						"virtualized send code. Falling back to winsock hooks.");
+					wsockfallback = true;
+					break;
+				}
+
+				mssendhook = iterator;
+				mssendhookret = reinterpret_cast<dword>(
+					*iterator == 0xE9 ? 
+					utils::mem::getjump(iterator) : 
+					utils::mem::getcall(iterator)
+				);
+			} while (false);
+
+			if (wsockfallback) 
 			{
-				wxLogWarning("Could not find the IAT pointer for recv. Falling back to winsock hooks.");
-
 				if (!wsockhooks::get()->ishooked())
 				{
 					wxLogWarning("Could not hook winsock send/recv. Packet logging will not work.");
@@ -146,16 +216,8 @@ namespace wxPloiter
 				{
 					initialized = true;
 					wsocklogging = true;
-					return;
 				}
 			}
-			else
-			{
-				recviat = *reinterpret_cast<dword **>(findrecvhook.result() - 4);
-				recviatret = reinterpret_cast<dword>(findrecvhook.result());
-			}
-
-			// TODO: find a new working send hook
 		}
 
 		if (wsocklogging)
@@ -199,10 +261,12 @@ namespace wxPloiter
 		if (!mssendhook)
 			return;
 
-		log->i(tag, strfmt() << "packethooks: " << (enabled ? "hooking" : "unhooking") << " send (not bypassless)");
-
-		if (!detours::hook(enabled, reinterpret_cast<PVOID *>(&mssendpacket), sendhook))
-			wxLogWarning("Failed to hook/unhook mssendpacket. Send logging/blocking will not work.");
+		log->i(tag, strfmt() << "packethooks: " << (enabled ? "hooking" : "unhooking") << " send");
+		(*reinterpret_cast<byte *>(mssendhook) == 0xE9 ? utils::mem::writejmp : utils::mem::writecall)(
+			reinterpret_cast<byte *>(mssendhook), 
+			enabled ? sendhook : reinterpret_cast<void *>(mssendhookret), 
+			0
+		);
 	}
 
 	void packethooks::hookrecv(bool enabled)
@@ -365,20 +429,6 @@ namespace wxPloiter
 		injectpacket(&mspacket);
 	}
 
-	// non-bypassless hook of mssendpacket used to block packets
-	// NOTE: unused
-	void __fastcall packethooks::sendblockhook(void *instance, void *edx, maple::outpacket *ppacket)
-	{
-		if (safeheaderlist::getblockedsend()->contains(*ppacket->pwHeader))
-		{
-			//get()->log->i(tag, strfmt() << "send: blocked header  " << 
-				//std::hex << std::uppercase << std::setw(4) << std::setfill('0') << *ppacket->pwHeader);
-			return;
-		}
-
-		injectpacket(ppacket);
-	}
-
 	dword _stdcall packethooks::handlepacket(dword isrecv, void *retaddy, int size, byte pdata[])
 	{
 		word *pheader = reinterpret_cast<word *>(pdata);
@@ -407,15 +457,6 @@ namespace wxPloiter
 		return 0;
 	}
 
-	void __fastcall packethooks::sendhook(void *instance, void *edx, maple::outpacket* ppacket) 
-	{
-		if (handlepacket(0, _ReturnAddress(), ppacket->cbData, ppacket->pbData) == 1)
-			return;
-
-		injectpacket(ppacket);
-	}
-
-	/*
 	void __declspec(naked) packethooks::sendhook()
 	{
 		// hook by AIRRIDE
@@ -442,7 +483,6 @@ namespace wxPloiter
 			jmp mssendhookret
 		}
 	}
-	*/
 
 	void __declspec(naked) packethooks::recviathook()
 	{

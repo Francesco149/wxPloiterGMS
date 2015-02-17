@@ -53,7 +53,7 @@ namespace wxPloiter
 	const std::string app::logfile = "wxPloiter.log";
 	const std::string app::tag = "wxPloiter::app";
 	const wxString app::appname = "wxPloiter";
-	const wxString app::appver = "r4-winsock";
+	const wxString app::appver = "r5-bypassless";
 
 	void app::rundll(HINSTANCE hInstance)
 	{
@@ -125,6 +125,11 @@ namespace wxPloiter
 		// init hooks
 		if (!packethooks::get()->isinitialized())
 			wxLogWarning("Could not hook some or all of the packet functions. Logging / sending might not work.");
+		
+		if (!packethooks::get()->isusingwsock()) {
+			packethooks::get()->hooksend(true);
+			packethooks::get()->hookrecv(true);
+		}
 
 		return true;
 	}
