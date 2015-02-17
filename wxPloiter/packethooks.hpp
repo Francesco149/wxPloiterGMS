@@ -26,6 +26,8 @@
 #include "safeheaderlist.hpp"
 
 #include <boost/shared_ptr.hpp>
+#include <Windows.h>
+#include <boost/lockfree/queue.hpp>
 
 namespace wxPloiter
 {
@@ -61,17 +63,25 @@ namespace wxPloiter
 
 		boost::shared_ptr<utils::logging> log;
 		bool initialized;
+
 		static dword maplethreadid; // thread that created the maplestory wnd
+
+		static boost::lockfree::queue<maple::inpacket *> inqueue;
+		static boost::lockfree::queue<maple::outpacket *> outqueue;
+		
 		static void **ppcclientsocket; // pointer to the CClientSocket instance
+		static void **pDispatchMessageA;
+		static void *DispatchMessageAret;
 		static pfnsendpacket mssendpacket; // maplestory's internal send func
 		static void *mssendhook; // some virtualized code related to mssendpacket
 		static dword mssendhookret;
 		static pfnrecvpacket msrecvpacket; // maplestory's internal recv func
-		static void* msrecvhook; // some virtualized code related to msrecvpacket
+		static void *msrecvhook; // some virtualized code related to msrecvpacket
 		static dword msrecvhookret;
 		static void *someretaddy; // for ret addy spoofing
 
 		static dword _stdcall handlepacket(dword isrecv, void *retaddy, int size, byte pdata[]);
+		static LRESULT WINAPI DispatchMessageA_hook(_In_ const MSG *lpmsg);
 		static void sendhook();
 		static void recvhook();
 

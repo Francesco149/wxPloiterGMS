@@ -40,6 +40,8 @@ namespace wxPloiter
 
 	// TODO: make these non-static and push them as params to injectpacket
 	void **packethooks::ppcclientsocket = NULL; // pointer to the CClientSocket instance
+	void **packethooks::pDispatchMessageA = NULL;
+	void *packethooks::DispatchMessageAret = NULL;
 	packethooks::pfnsendpacket packethooks::mssendpacket = NULL; // maplestory's internal send func
 	packethooks::pfnrecvpacket packethooks::msrecvpacket = NULL; // maplestory's internal recv func
 	void *packethooks::mssendhook = NULL;
@@ -48,6 +50,9 @@ namespace wxPloiter
 	dword packethooks::msrecvhookret = 0;
 	void *packethooks::someretaddy = NULL; // for ret addy spoofing
 	dword packethooks::maplethreadid;
+
+	boost::lockfree::queue<maple::inpacket *> packethooks::inqueue;
+	boost::lockfree::queue<maple::outpacket *> packethooks::outqueue;
 
 	boost::shared_ptr<packethooks> packethooks::get()
 	{
@@ -123,6 +128,18 @@ namespace wxPloiter
 			return;
 		}
 
+		// credits to airride for this bypassless DispatchMessage hook point
+		utils::mem::aobscan dispatchmessage("FF 15 ? ? ? ? 8D 55 ? 52 8B 8D ? ? ? ? E8", pmaplebase, maplesize);
+		if (!dispatchmessage.result()) 
+		{
+			wxLogWarning("Could not find DispatchMessageA hook, packet injection will not work.");
+		}
+		else {
+			pDispatchMessageA = *reinterpret_cast<void ***>(dispatchmessage.result() + 2);
+			*pDispatchMessageA = DispatchMessageA_hook;
+			DispatchMessageAret = dispatchmessage.result() + 6;
+		}
+
 		utils::mem::aobscan send("8B 0D ? ? ? ? E8 ? ? ? ? 8D 4C 24 ? E9", pmaplebase, maplesize);
 
 		if (!send.result() || FORCE_NOSEND)
@@ -184,6 +201,30 @@ namespace wxPloiter
 			&packethooks::getmaplethreadid, GetCurrentThreadId());
 
 		initialized = true;
+	}
+
+	LRESULT WINAPI packethooks::DispatchMessageA_hook(_In_ const MSG *lpmsg) 
+	{
+		if (_ReturnAddress() == DispatchMessageAret)
+		{
+			maple::outpacket *out;
+			while (outqueue.pop(out)) 
+			{
+				injectpacket(out);
+				delete[] out->pbData;
+				delete out;
+			}
+
+			maple::inpacket *in;
+			while (inqueue.pop(in)) 
+			{
+				injectpacket(in);
+				delete[] reinterpret_cast<byte *>(in->lpvData);
+				delete in;
+			}
+		}
+
+		return DispatchMessageA(lpmsg);
 	}
 
 	void packethooks::hooksend(bool enabled)
@@ -314,35 +355,43 @@ namespace wxPloiter
 		maple::packet pt = p; // the raw data will be encrypted so we need to make a copy
 
 		// construct packet object
-		maple::outpacket mspacket = {0};
-		mspacket.cbData = pt.size();
-		mspacket.pbData = pt.raw();
+		maple::outpacket *mspacket = new maple::outpacket;
+		ZeroMemory(mspacket, sizeof(maple::outpacket));
+		mspacket->cbData = pt.size();
+		mspacket->pbData = new byte[pt.size()];
+		memcpy_s(mspacket->pbData, pt.size(), pt.raw(), pt.size());
 
 		// spoof thread id
 		// credits to kma4 for hinting me the correct TIB thread id offset
-		__writefsdword(0x06B8, maplethreadid);
+		//__writefsdword(0x06B8, maplethreadid);
 
 		// send packet
-		injectpacket(&mspacket);
+		//injectpacket(&mspacket);
+
+		outqueue.push(mspacket);
 	}
 
 	void packethooks::recvpacket(maple::packet &p)
 	{
 		// construct packet object
-		maple::inpacket mspacket = {0};
-		mspacket.iState = 2;
-		mspacket.lpvData = p.raw();
-		mspacket.dwTotalLength = p.size();
-		mspacket.dwUnknown = 0; // 0x00CC;
-		mspacket.dwValidLength = mspacket.dwTotalLength - sizeof(DWORD);
-		mspacket.uOffset = 4;
+		maple::inpacket *mspacket = new maple::inpacket;
+		ZeroMemory(mspacket, sizeof(maple::inpacket));
+		mspacket->iState = 2;
+		mspacket->lpvData = new byte[p.size()];
+		memcpy_s(mspacket->lpvData, p.size(), p.raw(), p.size());
+		mspacket->dwTotalLength = p.size();
+		mspacket->dwUnknown = 0; // 0x00CC;
+		mspacket->dwValidLength = mspacket->dwTotalLength - sizeof(DWORD);
+		mspacket->uOffset = 4;
 
 		// spoof thread id
 		// credits to kma4 for hinting me the correct TIB thread id offset
-		__writefsdword(0x06B8, maplethreadid);
+		//__writefsdword(0x06B8, maplethreadid);
 
 		// send packet
-		injectpacket(&mspacket);
+		//injectpacket(&mspacket);
+
+		inqueue.push(mspacket);
 	}
 
 	dword _stdcall packethooks::handlepacket(dword isrecv, void *retaddy, int size, byte pdata[])
