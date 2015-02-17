@@ -40,6 +40,9 @@
 #include <boost/make_shared.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <Shellapi.h>
+#pragma comment(lib, "Shell32.lib")
+
 #define menu_bind(functor, id) \
 	Bind(wxEVT_COMMAND_MENU_SELECTED, functor, this, id);
 
@@ -105,7 +108,7 @@ namespace wxPloiter
 		dbgcode(log->setverbosity(utils::logging::verbose));
 
 		// create main frame
-		mainform::init(hInstance, appname, wxDefaultPosition, wxSize(420 /* blaze it faggot */, 490));
+		mainform::init(hInstance, appname, wxDefaultPosition, wxSize(420 /* blaze it faggot */, 530));
 		frame = mainform::get();
 
 		if (!frame) // out of memory?
@@ -494,21 +497,24 @@ namespace wxPloiter
 			wxStaticText *begging0 = new wxStaticText(basepanel, wxID_ANY, "Like my releases?");
 			wxHyperlinkCtrl *begging1 = new wxHyperlinkCtrl(basepanel, wxID_ANY, "donate", 
 				"https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=5E289LJ5UUG3Q");
-			/*
-			wxStaticText *begging2 = new wxStaticText(basepanel, wxID_ANY, "or");
-			wxHyperlinkCtrl *begging3 = new wxHyperlinkCtrl(basepanel, wxID_ANY, "buy my cheap meso", 
-				"https://ccplz.net/threads/s-meso-16%E2%82%AC-b-taxes-covered-paypal-btc-ltc-doge.60888/");
-			*/
 
 			begsizer->Add(begging0, 0, wxRIGHT, 5);
 			begsizer->Add(begging1, 0, wxRIGHT, 0);
-			//begsizer->Add(begging2, 0, wxRIGHT, 5);
-			//begsizer->Add(begging3, 0, wxRIGHT, 0);
+		}
+
+		wxBoxSizer *gksizer = new wxBoxSizer(wxHORIZONTAL);
+		{
+			wxStaticText *gk1 = new wxStaticText(basepanel, wxID_ANY, "For more awesome releases, visit");
+			wxHyperlinkCtrl *gk2 = new wxHyperlinkCtrl(basepanel, wxID_ANY, "gamekiller.net", 
+				"http://www.gamekiller.net/global-maplestory-hacks-and-bots/");
+			gksizer->Add(gk1, 0, wxRIGHT, 5);
+			gksizer->Add(gk2, 0, wxRIGHT, 0);
 		}
 
 		basesizer->Add(packetsbox, 1, wxALL | wxEXPAND, 10);
 		basesizer->Add(injectbox, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 10);
 		basesizer->Add(begsizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 10);
+		basesizer->Add(gksizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 10);
 		basepanel->SetAutoLayout(true);
 		basepanel->SetSizer(basesizer);
 		basepanel->Layout(); // fixes the layout snapping into place after the first resize
@@ -1195,7 +1201,11 @@ namespace wxPloiter
 				app::appname, wxICON_INFORMATION | wxYES_NO, this);
 
 			if (res == wxYES)
+			{
+				 ShellExecuteA(NULL, "open", "http://www.gamekiller.net/global-maplestory-hacks-and-bots/", 
+					 NULL, NULL, SW_SHOWNORMAL);
 				TerminateProcess(GetCurrentProcess(), EXIT_SUCCESS);
+			}
 
 			e.Veto();
 			return;

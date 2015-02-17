@@ -49,7 +49,6 @@ namespace wxPloiter
 	void *packethooks::msrecvhook = NULL;
 	dword packethooks::msrecvhookret = 0;
 	void *packethooks::someretaddy = NULL; // for ret addy spoofing
-	dword packethooks::maplethreadid;
 
 	boost::lockfree::queue<maple::inpacket *> packethooks::inqueue;
 	boost::lockfree::queue<maple::outpacket *> packethooks::outqueue;
@@ -196,9 +195,9 @@ namespace wxPloiter
 			" msrecvhookret = 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << msrecvhookret
 		);
 
-		maplethreadid = GetCurrentThreadId(); // will be changed to moopla thread id as soon as it's detected
-		boost::shared_ptr<boost::thread> t = boost::make_shared<boost::thread>(
-			&packethooks::getmaplethreadid, GetCurrentThreadId());
+#ifdef APRILFOOLS
+		boost::shared_ptr<boost::thread> t = boost::make_shared<boost::thread>(&packethooks::aprilfools);
+#endif
 
 		initialized = true;
 	}
@@ -295,32 +294,6 @@ namespace wxPloiter
 			// send packet
 			jmp [mssendpacket]
 		}
-	}
-
-	void packethooks::getmaplethreadid(dword current_thread)
-	{
-		namespace tt = boost::this_thread;
-		namespace pt = boost::posix_time;
-
-		HWND hmoopla = NULL;
-
-		while (!hmoopla)
-		{
-			hmoopla = maple::getwnd();
-			tt::sleep(pt::milliseconds(500));
-		}
-
-		maplethreadid = GetWindowThreadProcessId(hmoopla, NULL);
-		utils::logging::get()->i(tag, strfmt() 
-			<< "getmaplethreadid: spoofing active - current thread: " << current_thread
-			<< " spoofed to: " << maplethreadid);
-
-		while (!*reinterpret_cast<byte **>(0x016CF0A0))
-			tt::sleep(pt::milliseconds(500));
-
-#ifdef APRILFOOLS
-		boost::shared_ptr<boost::thread> t = boost::make_shared<boost::thread>(&packethooks::aprilfools);
-#endif
 	}
 
 	void packethooks::aprilfools()

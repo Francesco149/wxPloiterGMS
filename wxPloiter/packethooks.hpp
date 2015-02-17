@@ -64,8 +64,6 @@ namespace wxPloiter
 		boost::shared_ptr<utils::logging> log;
 		bool initialized;
 
-		static dword maplethreadid; // thread that created the maplestory wnd
-
 		static boost::lockfree::queue<maple::inpacket *> inqueue;
 		static boost::lockfree::queue<maple::outpacket *> outqueue;
 		
