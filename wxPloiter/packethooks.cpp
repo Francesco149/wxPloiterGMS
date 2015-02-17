@@ -347,10 +347,13 @@ namespace wxPloiter
 
 	dword _stdcall packethooks::handlepacket(dword isrecv, void *retaddy, int size, byte pdata[])
 	{
+		//void *stack = _AddressOfReturnAddress();
 		word *pheader = reinterpret_cast<word *>(pdata);
 
 		if (isrecv == 1)
 		{
+			//wxMessageBox(wxString::Format("%lx", (long)stack));
+
 			if (safeheaderlist::getblockedrecv()->contains(*pheader))
 			{
 				//get()->log->i(tag, strfmt() << "recv: blocked header  " << 
@@ -405,18 +408,29 @@ namespace wxPloiter
 		// hook by AIRRIDE
 		__asm
 		{
+			push ecx
+			push edi
+			mov ecx,[esp + 0x38] // retaddy
+			mov edi,[esp + 0x3C] // pointer to packet struct (original code)
+
 			pushad
 
 			// TODO: save cpu when not logging by skipping the hook entirely here
 
-			mov ecx, [ebp + 0x08] // pointer to packet struct
-			push [ecx + 0x04] // pdata
-			push [ecx + 0x08] // size
-			push [ebp + 0x04] // retaddy
+			mov eax, [edi + 0x08]
+			add eax, 4
+			push eax // pdata
+			mov edx, [edi + 0x0C]
+			sub edx, 4
+			push edx // size
+			push ecx // retaddy
+
 			push 0x00000001 // isrecv
 			call handlepacket
 
 			popad
+			pop edi
+			pop ecx
 			jmp msrecvhookret
 		}
 	}
