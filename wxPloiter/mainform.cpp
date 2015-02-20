@@ -56,7 +56,7 @@ namespace wxPloiter
 	const std::string app::logfile = "wxPloiter.log";
 	const std::string app::tag = "wxPloiter::app";
 	const wxString app::appname = "wxPloiter";
-	const wxString app::appver = "r6-bypassless";
+	const wxString app::appver = "r7-bypassless";
 
 	void app::rundll(HINSTANCE hInstance)
 	{
@@ -188,10 +188,7 @@ namespace wxPloiter
 
 		// append given columns
 		for (size_t i = 0; i < columns; i++)
-		{
 			it[i] = va_arg(va, wxString);
-			//utils::logging::get()->i("itemlist", strfmt() << "it[" << i << "] = " << it[i]);
-		}
 
 		// missing columns will remain empty
 
@@ -223,7 +220,6 @@ namespace wxPloiter
 
 	wxString itemlist::OnGetItemText(long item, long column) const
 	{
-		//utils::logging::get()->i("itemlist", strfmt() << "getting items[" << item << "][" << column << "]");
 		return items[item][column];
 	}
 
@@ -379,8 +375,6 @@ namespace wxPloiter
 		ascroll = menu->AppendCheckItem(wxID_LOGGING_AUTOSCROLL, "Autoscroll");
 		ascroll->Check(true);
 		menu->Append(wxID_LOGGING_CLEAR, "Clear");
-		//menu->AppendCheckItem(wxID_LOGGING_HOOKSEND, "Hook send");
-		//menu->AppendCheckItem(wxID_LOGGING_HOOKRECV, "Hook recv");
 		wxMenuItem *logitem = menu->AppendCheckItem(wxID_LOGGING_SEND, "Log send");
 		logitem->Check();
 		logitem = menu->AppendCheckItem(wxID_LOGGING_RECV, "Log recv");
@@ -401,7 +395,6 @@ namespace wxPloiter
 		menu->Append(wxID_PACKET_HEADERLIST, "Header list");
 		menu->Append(wxID_PACKET_IGNORE, "Ignore header");
 		menu->Append(wxID_PACKET_BLOCK, "Block header");
-		//menu->AppendCheckItem(wxID_PACKET_ENABLESENDBLOCK, "Send blocking hook (requires bypass)");
 		mbar->Append(menu, "Packet"); // add menu to the menu bar
 		packetmenu = menu;
 
@@ -410,7 +403,6 @@ namespace wxPloiter
 		menu_bind(&mainform::OnPacketHeaderListClicked, wxID_PACKET_HEADERLIST);
 		menu_bind(&mainform::OnPacketIgnoreClicked, wxID_PACKET_IGNORE);
 		menu_bind(&mainform::OnPacketBlockClicked, wxID_PACKET_BLOCK);
-		//menu_bind(&mainform::OnPacketEnableSendBlockClicked, wxID_PACKET_ENABLESENDBLOCK);
 
 		// settings menu
 		menu = new wxMenu;
@@ -454,7 +446,7 @@ namespace wxPloiter
 			// FUCK I spent like 2 hours trying to figure out what was wrong with the packet sender to discover 
 			// that the text wrapping was causing the wrapped newlines to be treated as multiline packets
 			packettext = new wxTextCtrl(box, wxID_ANY, wxEmptyString, 
-				wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_DONTWRAP);
+				wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_DONTWRAP | wxTE_RICH);
 			packettext->SetFont(packets->GetFont());
 
 			// horizontal sizer for the two buttons
@@ -872,7 +864,7 @@ namespace wxPloiter
 				else
 					lines->back().append_data(theline.ToStdString());
 				
-				log->i(tag, strfmt() << "injectpackets: parsed " << combobox->GetValue().ToStdString() << " " << lines->back().tostring());
+				//log->i(tag, strfmt() << "injectpackets: parsed " << combobox->GetValue().ToStdString() << " " << lines->back().tostring());
 			}
 
 			hpacketspam = boost::make_shared<boost::thread>(

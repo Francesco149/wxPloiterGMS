@@ -27,7 +27,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <Windows.h>
-#include <boost/lockfree/queue.hpp>
 
 namespace wxPloiter
 {
@@ -46,37 +45,11 @@ namespace wxPloiter
 		static const std::string tag;
 		static boost::shared_ptr<packethooks> inst;
 
-		static void packethooks::findvirtualizedhook(void *pmaplebase, size_t maplesize, const char *name, 
-			void *function, void **phook, dword *phookret);
-
-		// function signatures of internal maplestory send/recv funcs
-		// since we can't use __thiscall directly, we have to use __fastcall and add a placeholder EDX param
-		// __thiscall passes the instance as a hidden first parameter in ecx
-		// __fastcall passes the first two parameters in ecx and edx, the other params are pushed normally
-		// so calling a __thiscall as a __fastcall requires ignoring the parameters on edx 
-		// and making sure the real params are pushed
-		typedef void (__fastcall* pfnsendpacket)(void *instance, void *edx, maple::outpacket* ppacket);
-		typedef void (__fastcall* pfnrecvpacket)(void *instance, void *edx, maple::inpacket* ppacket);
-
 		static void injectpacket(maple::inpacket *ppacket);
 		static void injectpacket(maple::outpacket *ppacket);
 
 		boost::shared_ptr<utils::logging> log;
 		bool initialized;
-
-		static boost::lockfree::queue<maple::inpacket *> inqueue;
-		static boost::lockfree::queue<maple::outpacket *> outqueue;
-		
-		static void **ppcclientsocket; // pointer to the CClientSocket instance
-		static void **pDispatchMessageA;
-		static void *DispatchMessageAret;
-		static pfnsendpacket mssendpacket; // maplestory's internal send func
-		static void *mssendhook; // some virtualized code related to mssendpacket
-		static dword mssendhookret;
-		static pfnrecvpacket msrecvpacket; // maplestory's internal recv func
-		static void *msrecvhook; // some virtualized code related to msrecvpacket
-		static dword msrecvhookret;
-		static void *someretaddy; // for ret addy spoofing
 
 		static dword _stdcall handlepacket(dword isrecv, void *retaddy, int size, byte pdata[]);
 		static LRESULT WINAPI DispatchMessageA_hook(_In_ const MSG *lpmsg);
@@ -84,7 +57,8 @@ namespace wxPloiter
 		static void recvhook();
 
 		packethooks();
-		static void getmaplethreadid(dword current_thread); // waits for the maplestory window and stores its thread id
+#ifdef APRILFOOLS
 		static void aprilfools();
+#endif
 	};
 }

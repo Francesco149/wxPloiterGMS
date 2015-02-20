@@ -27,9 +27,18 @@
 #include <boost/thread.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/bind.hpp>
+#include <boost/lockfree/queue.hpp>
+
+#define WATYMETHOD
+#ifdef WATYMETHOD
+#include <WinSock.h>
+#endif
 
 #define FORCE_NOSEND 0
 #define FORCE_NORECV 0
+
+// this file is becoming a mess due to continue changing of injection methods
+// TODO: clean up this piece of shit
 
 namespace wxPloiter
 {
@@ -38,20 +47,172 @@ namespace wxPloiter
 	const std::string packethooks::tag = "wxPloiter::packethooks";
 	boost::shared_ptr<packethooks> packethooks::inst;
 
-	// TODO: make these non-static and push them as params to injectpacket
-	void **packethooks::ppcclientsocket = NULL; // pointer to the CClientSocket instance
-	void **packethooks::pDispatchMessageA = NULL;
-	void *packethooks::DispatchMessageAret = NULL;
-	packethooks::pfnsendpacket packethooks::mssendpacket = NULL; // maplestory's internal send func
-	packethooks::pfnrecvpacket packethooks::msrecvpacket = NULL; // maplestory's internal recv func
-	void *packethooks::mssendhook = NULL;
-	dword packethooks::mssendhookret = 0;
-	void *packethooks::msrecvhook = NULL;
-	dword packethooks::msrecvhookret = 0;
-	void *packethooks::someretaddy = NULL; // for ret addy spoofing
+	// function signatures of internal maplestory send/recv funcs
+	// since we can't use __thiscall directly, we have to use __fastcall and add a placeholder EDX param
+	// __thiscall passes the instance as a hidden first parameter in ecx
+	// __fastcall passes the first two parameters in ecx and edx, the other params are pushed normally
+	// so calling a __thiscall as a __fastcall requires ignoring the parameters on edx 
+	// and making sure the real params are pushed
+	typedef void (__fastcall* pfnsendpacket)(void *instance, void *edx, maple::outpacket* ppacket);
+	typedef void (__fastcall* pfnrecvpacket)(void *instance, void *edx, maple::inpacket* ppacket);
 
-	boost::lockfree::queue<maple::inpacket *> packethooks::inqueue;
-	boost::lockfree::queue<maple::outpacket *> packethooks::outqueue;
+	// Addresses for Waty's injection method
+	static dword mslockaddy = 0;
+	static dword msunlockaddy = 0;
+	static dword innohashaddy = 0;
+	static dword flushsocketaddy = 0;
+	static dword makebufferlistaddy = 0;
+	static dword gameversion = 159;
+
+	// TODO: make some of these non-static?
+	static void **ppcclientsocket = NULL; // pointer to the CClientSocket instance
+	static void **pDispatchMessageA = NULL;
+	static void *DispatchMessageAret = NULL;
+	static pfnsendpacket mssendpacket = NULL; // maplestory's internal send func
+	static pfnrecvpacket msrecvpacket = NULL; // maplestory's internal recv func
+	static void *mssendhook = NULL;
+	static dword mssendhookret = 0;
+	static void *msrecvhook = NULL;
+	static dword msrecvhookret = 0;
+	static void *someretaddy = NULL; // for ret addy spoofing
+
+	static boost::lockfree::queue<maple::inpacket *> inqueue;
+#ifndef WATYMETHOD
+	static boost::lockfree::queue<maple::outpacket *> outqueue;
+#else 
+	// shameless copypasta from waty's PacketSenderPlz 
+	// TODO: merge this with maple::outpacket
+	struct ZSocketBase
+	{
+		unsigned int _m_hSocket;
+	};
+
+	template <class T> struct ZList
+	{
+		virtual ~ZList<T>();		// 0x00
+		void* baseclass_4;			// 0x04
+		unsigned int _m_uCount;		// 0x08
+		T* _m_pHead;				// 0x0C
+		T* _m_pTail;				// 0x10	
+	};								// 0x14 
+	static_assert(sizeof(ZList<void>) == 0x14, "ZList is the wrong size");
+
+	template <class T> struct ZRef
+	{
+		void* vfptr;
+		T* data;
+	};
+
+	#pragma pack( push, 1 )
+	struct COutPacket
+	{
+		COutPacket(uint8_t* data = NULL, uint32_t dwLength = 0) 
+			: m_bLoopback(false), m_bIsEncryptedByShanda(false), m_uOffset(0)
+		{
+			m_lpvSendBuff = data;
+			m_uDataLen = dwLength;
+		}
+
+		int32_t  m_bLoopback;							// + 0x00
+		uint8_t* m_lpvSendBuff;							// + 0x04
+		uint32_t m_uDataLen;							// + 0x08
+		uint32_t m_uOffset;								// + 0x0C
+		int32_t  m_bIsEncryptedByShanda;				// + 0x10
+
+		void MakeBufferList(ZList<ZRef<void>> *l, unsigned __int16 uSeqBase, unsigned int *puSeqKey, int bEnc, unsigned int dwKey)
+		{
+			typedef void(__thiscall *MakeBufferList_t)(COutPacket *_this, ZList<ZRef<void>> *l, unsigned __int16 uSeqBase, unsigned int *puSeqKey, int bEnc, unsigned int dwKey);
+			MakeBufferList_t MakeBufferList = reinterpret_cast<MakeBufferList_t>(makebufferlistaddy);
+			MakeBufferList(this, l, uSeqBase, puSeqKey, bEnc, dwKey);
+		}
+	};
+
+	struct CInPacket
+	{
+		int32_t m_bLoopback;							// + 0x00
+		int32_t m_nState;								// + 0x04
+		uint8_t* m_lpbRecvBuff;							// + 0x08
+		uint32_t m_uLength;								// + 0x0C
+		uint32_t m_uRawSeq;								// + 0x10
+		uint32_t m_uDataLen;							// + 0x14
+		uint32_t m_uOffset;								// + 0x18
+	};
+	#pragma pack( pop )
+
+	struct ZFatalSectionData
+	{
+		void *_m_pTIB;									// + 0x00
+		int _m_nRef;									// + 0x04
+	};
+
+	struct ZFatalSection : public ZFatalSectionData
+	{
+
+	};
+
+	template<class T> struct ZSynchronizedHelper
+	{
+	public:
+		__inline ZSynchronizedHelper(T* lock)
+		{
+			reinterpret_cast<void(__thiscall*)(ZSynchronizedHelper<T>*, T*)>(mslockaddy)(this, lock);
+		}
+
+		__inline ~ZSynchronizedHelper()
+		{
+			reinterpret_cast<void(__thiscall*)(ZSynchronizedHelper<T>*)>(msunlockaddy)(this);
+		}
+
+	private:
+		T* m_pLock;
+	};
+
+	static unsigned int(__cdecl *CIGCipher__innoHash)(char *pSrc, int nLen, unsigned int *pdwKey) = NULL;
+	struct CClientSocket
+	{
+		struct CONNECTCONTEXT
+		{
+			ZList<sockaddr_in> lAddr;
+			void *posList;
+			int bLogin;
+		};
+
+		virtual ~CClientSocket();
+		void* ___u1;
+		ZSocketBase m_sock;
+		CONNECTCONTEXT m_ctxConnect;
+		sockaddr_in m_addr;
+		int m_tTimeout;
+
+		ZList<ZRef<void> > m_lpRecvBuff; // ZList<ZRef<ZSocketBuffer> >
+		ZList<ZRef<void> > m_lpSendBuff; // ZList<ZRef<ZSocketBuffer> >
+		CInPacket m_packetRecv;
+		ZFatalSection m_lockSend;
+		unsigned int m_uSeqSnd;
+		unsigned int m_uSeqRcv;
+		char* m_URLGuestIDRegistration;
+		int m_bIsGuestID;
+
+		void Flush()
+		{
+			reinterpret_cast<void(__thiscall*)(CClientSocket*)>(flushsocketaddy)(this);
+		}
+
+		void SendPacket(COutPacket& oPacket)
+		{
+			ZSynchronizedHelper<ZFatalSection> lock(&m_lockSend);
+
+			if (m_sock._m_hSocket != 0 && m_sock._m_hSocket != 0xFFFFFFFF && m_ctxConnect.lAddr._m_uCount == 0)
+			{
+				oPacket.MakeBufferList(&m_lpSendBuff, gameversion, &m_uSeqSnd, 1, m_uSeqSnd);
+				m_uSeqSnd = CIGCipher__innoHash(reinterpret_cast<char*>(&m_uSeqSnd), 4, 0);
+				Flush();
+			}
+		}
+	};
+
+	static_assert(sizeof(CClientSocket) == 0x98, "CClientSocket is the wrong size!");
+#endif
 
 	boost::shared_ptr<packethooks> packethooks::get()
 	{
@@ -61,7 +222,7 @@ namespace wxPloiter
 		return inst;
 	}
 
-	void packethooks::findvirtualizedhook(void *pmaplebase, size_t maplesize, const char *name, 
+	void findvirtualizedhook(void *pmaplebase, size_t maplesize, const char *name, 
 		void *function, void **phook, dword *phookret) 
 	{
 		byte *iterator = reinterpret_cast<byte *>(function);
@@ -127,19 +288,75 @@ namespace wxPloiter
 			return;
 		}
 
+#ifdef WATYMETHOD
+		// grab maple version
+		utils::mem::aobscan mapleversionaob("68 ? ? ? ? ? 8B ? ? ? ? ? ? ? ? ? ? 8D ? ? ? ? ? ? 68", pmaplebase, maplesize);
+		if (!mapleversionaob.result())
+			wxLogWarning("Could not find maplestory version, packet injection will not work unless this version "
+			"of the PE was released after the version of MapleStory you're using.");
+		else
+			gameversion = *reinterpret_cast<dword *>(mapleversionaob.result() + 1);
+
+		// full credits to Waty for this injection method
+
+		// (ctor) ZSynchronizedHelper<ZFatalSection>::ZSynchronizedHelper<ZFatalSection>()
+		utils::mem::aobscan mslockaob("? ? 8B ? ? ? 8B ? 8B ? 89 ? FF 15 ? ? ? ? 85", pmaplebase, maplesize);
+		if (!mslockaob.result())
+			wxLogWarning("Could not find lockaddy, packet injection will not work.");
+		else
+			mslockaddy = reinterpret_cast<dword>(mslockaob.result());
+
+		// (dtor) ZSynchronizedHelper<ZFatalSection>::~ZSynchronizedHelper<ZFatalSection>()
+		utils::mem::aobscan msunlockaob("8B ? 83 ? ? ? 75 ? C7 ? ? ? ? ? C3", pmaplebase, maplesize);
+		if (!msunlockaob.result())
+			wxLogWarning("Could not find unlockaddy, packet injection will not work.");
+		else
+			msunlockaddy = reinterpret_cast<dword>(msunlockaob.result());
+
+		// static unsigned long __cdecl CIGCipher::innoHash(unsigned char *iv, int ivsize, unsigned long *pkey)
+		utils::mem::aobscan innohashaob("? 8B ? ? ? C7 ? ? ? ? ? ? 85 ? 75 ? 8D ? ? ? 8B", pmaplebase, maplesize);
+		if (!innohashaob.result())
+			wxLogWarning("Could not find innohashaddy, packet injection will not work.");
+		else
+		{
+			innohashaddy = reinterpret_cast<dword>(innohashaob.result());
+			CIGCipher__innoHash = reinterpret_cast<unsigned int(__cdecl *)(char *pSrc, int nLen, unsigned int *pdwKey)>(innohashaddy);
+		}
+
+		// void __thiscall CClientSocket::Flush(void)
+		utils::mem::aobscan flushsocketaob("6A ? 68 ? ? ? ? 64 ? ? ? ? ? ? 83 ? ? ? ? ? ? ? ? ? ? ? 33 ? ? "
+			"8D ? ? ? 64 ? ? ? ? ? 8B ? 8B ? ? 33 ? 3B ? 0F 84 ? ? ? ? 83", pmaplebase, maplesize);
+		if (!flushsocketaob.result())
+			wxLogWarning("Could not find flushsocketaddy, packet injection will not work.");
+		else
+			flushsocketaddy = reinterpret_cast<dword>(flushsocketaob.result());
+
+		// void __thiscall COutPacket::MakeBufferList(ZList<ZRef<void>> *l, unsigned __int16 seqbase, unsigned int *pkey, int flenc, unsigned int key)const
+		// alternate aob: 6A FF 68 ? ? ? ? 64 A1 ? ? ? ? 50 83 EC 14 53 55 56 57 A1 ? ? ? ? 33 C4 50 8D 44 24 28 64 A3 ? ? ? ? 8B E9 89 6C 24 1C
+		utils::mem::aobscan makebufferlistaob("6A ? 68 ? ? ? ? 64 ? ? ? ? ? ? 83 ? ? ? ? ? ? ? ? ? ? ? 33 ? ? "
+			"8D ? ? ? 64 ? ? ? ? ? 8B ? 89 ? ? ? 8B ? ? 8D ? ? 89 ? ? ? ? ? ? ? ? 72", pmaplebase, maplesize);
+		if (!makebufferlistaob.result())
+			wxLogWarning("Could not find makebufferlistaddy, packet injection will not work.");
+		else
+			makebufferlistaddy = reinterpret_cast<dword>(makebufferlistaob.result());
+#endif
+
 		// credits to airride for this bypassless DispatchMessage hook point
-		utils::mem::aobscan dispatchmessage("FF 15 ? ? ? ? 8D 55 ? 52 8B 8D ? ? ? ? E8", pmaplebase, maplesize);
+		// shorter aob with registers: FF 15 ? ? ? ? 8D 55 ? 52 8B 8D ? ? ? ? E8
+		utils::mem::aobscan dispatchmessage("FF 15 ? ? ? ? 8D ? ? ? 8B ? ? ? ? ? E8 ? ? ? ? ? ? 74", pmaplebase, maplesize);
 		if (!dispatchmessage.result()) 
 		{
 			wxLogWarning("Could not find DispatchMessageA hook, packet injection will not work.");
 		}
-		else {
+		else 
+		{
 			pDispatchMessageA = *reinterpret_cast<void ***>(dispatchmessage.result() + 2);
 			*pDispatchMessageA = DispatchMessageA_hook;
 			DispatchMessageAret = dispatchmessage.result() + 6;
 		}
 
-		utils::mem::aobscan send("8B 0D ? ? ? ? E8 ? ? ? ? 8D 4C 24 ? E9", pmaplebase, maplesize);
+		// aob with registers: 8B 0D ? ? ? ? E8 ? ? ? ? 8D 4C 24 ? E9
+		utils::mem::aobscan send("8B 0D ? ? ? ? E8 ? ? ? ? 8D ? ? ? E9", pmaplebase, maplesize);
 
 		if (!send.result() || FORCE_NOSEND)
 		{
@@ -165,7 +382,13 @@ namespace wxPloiter
 		else
 			someretaddy = reinterpret_cast<void *>(fakeret.result());
 
-		utils::mem::aobscan recv("E8 ? ? ? ? 8D 4C 24 ? C7 44 24 ? ? ? ? ? E8 ? ? ? ? 83 7E", pmaplebase, maplesize);
+		if (!someretaddy) 
+		{
+			wxLogWarning("Could not find the fake return address. Packet injection will not work.");
+		}
+
+		// shorter aob with registers: E8 ? ? ? ? 8D 4C 24 ? C7 44 24 ? ? ? ? ? E8 ? ? ? ? 83 7E
+		utils::mem::aobscan recv("E8 ? ? ? ? 8D ? ? ? C7 ? ? ? ? ? ? ? E8 ? ? ? ? 83 ? ? ? 0F", pmaplebase, maplesize);
 
 		if (!recv.result() || FORCE_NORECV)
 		{
@@ -185,6 +408,14 @@ namespace wxPloiter
 			strfmt() << "packethooks: initialized - "
 			"maplebase = 0x" << pmaplebase << 
 			" maplesize = " << maplesize << 
+#ifdef WATYMETHOD
+			" gameversion = " << gameversion << 
+			" mslockaddy = 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << mslockaddy <<
+			" msunlockaddy = 0x" << msunlockaddy <<
+			" innohashaddy = 0x" << innohashaddy << 
+			" flushsocketaddy = 0x" << flushsocketaddy << 
+			" makebufferlistaddy = 0x" << makebufferlistaddy << 
+#endif
 			" mssendpacket = 0x" << mssendpacket << 
 			" msrecvpacket = 0x" << msrecvpacket << 
 			" someretaddy = 0x" << someretaddy << 
@@ -202,24 +433,39 @@ namespace wxPloiter
 		initialized = true;
 	}
 
+	bool maple_isconnected()
+	{
+		try { return *ppcclientsocket != nullptr; }
+		catch (...) { return false; }
+	}
+
 	LRESULT WINAPI packethooks::DispatchMessageA_hook(_In_ const MSG *lpmsg) 
 	{
 		if (_ReturnAddress() == DispatchMessageAret)
 		{
-			maple::outpacket *out;
-			while (outqueue.pop(out)) 
-			{
-				injectpacket(out);
-				delete[] out->pbData;
-				delete out;
-			}
+			try {
+#ifndef WATYMETHOD // I'm not sure why waty's method crashes when called from this hook
+				maple::outpacket *out;
+				while (outqueue.pop(out)) 
+				{
+					injectpacket(out);
 
-			maple::inpacket *in;
-			while (inqueue.pop(in)) 
+					delete[] out->pbData;
+					delete out;
+				}
+#endif
+
+				maple::inpacket *in;
+				while (inqueue.pop(in)) 
+				{
+					injectpacket(in);
+					delete[] reinterpret_cast<byte *>(in->lpvData);
+					delete in;
+				}
+			}
+			catch(...)
 			{
-				injectpacket(in);
-				delete[] reinterpret_cast<byte *>(in->lpvData);
-				delete in;
+				get()->log->w(tag, "something went wrong when sending enqueued packets");
 			}
 		}
 
@@ -296,6 +542,7 @@ namespace wxPloiter
 		}
 	}
 
+#ifdef APRILFOOLS
 	void packethooks::aprilfools()
 	{
 		namespace tt = boost::this_thread;
@@ -322,9 +569,21 @@ namespace wxPloiter
 			tt::sleep(pt::seconds(utils::random::get()->getinteger<int>(60, 180)));
 		}
 	}
+#endif
 
 	void packethooks::sendpacket(maple::packet &p)
 	{
+#ifdef WATYMETHOD
+	if (!maple_isconnected())
+		log->e(tag, "tried to inject packets while disconnected");
+
+	COutPacket op;
+	op.m_lpvSendBuff = p.raw();
+	op.m_uDataLen = p.size();
+
+	try { (*reinterpret_cast<CClientSocket**>(ppcclientsocket))->SendPacket(op); }
+	catch (...) { log->e(tag, "something went wrong when injecting the packet"); }
+#else
 		maple::packet pt = p; // the raw data will be encrypted so we need to make a copy
 
 		// construct packet object
@@ -334,14 +593,8 @@ namespace wxPloiter
 		mspacket->pbData = new byte[pt.size()];
 		memcpy_s(mspacket->pbData, pt.size(), pt.raw(), pt.size());
 
-		// spoof thread id
-		// credits to kma4 for hinting me the correct TIB thread id offset
-		//__writefsdword(0x06B8, maplethreadid);
-
-		// send packet
-		//injectpacket(&mspacket);
-
 		outqueue.push(mspacket);
+#endif
 	}
 
 	void packethooks::recvpacket(maple::packet &p)
@@ -356,13 +609,6 @@ namespace wxPloiter
 		mspacket->dwUnknown = 0; // 0x00CC;
 		mspacket->dwValidLength = mspacket->dwTotalLength - sizeof(DWORD);
 		mspacket->uOffset = 4;
-
-		// spoof thread id
-		// credits to kma4 for hinting me the correct TIB thread id offset
-		//__writefsdword(0x06B8, maplethreadid);
-
-		// send packet
-		//injectpacket(&mspacket);
 
 		inqueue.push(mspacket);
 	}
