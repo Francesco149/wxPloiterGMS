@@ -290,7 +290,7 @@ namespace wxPloiter
 
 #ifdef WATYMETHOD
 		// grab maple version
-		utils::mem::aobscan mapleversionaob("68 ? ? ? ? ? 8B ? ? ? ? ? ? ? ? ? ? 8D ? ? ? ? ? ? 68", pmaplebase, maplesize);
+		utils::mem::aobscan mapleversionaob("68 ? ? 00 00 E8 ? ? ? ? 83 ? ? 6A ? 8D", pmaplebase, maplesize);
 		if (!mapleversionaob.result())
 			wxLogWarning("Could not find maplestory version, packet injection will not work unless this version "
 			"of the PE was released after the version of MapleStory you're using.");
@@ -678,8 +678,8 @@ namespace wxPloiter
 		{
 			push ecx
 			push edi
-			mov ecx,[esp + 0x38] // retaddy
-			mov edi,[esp + 0x3C] // pointer to packet struct (original code)
+			mov ecx,[esp + 0x28 + 8] // retaddy
+			mov edi,[esp + 0x2C + 8] // pointer to packet struct (original code)
 
 			pushad
 

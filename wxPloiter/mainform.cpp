@@ -22,6 +22,7 @@
 #include "packethooks.hpp"
 #include "resource.h"
 #include "utils.hpp"
+#include "mem.h"
 #include "safeheaderlist.hpp"
 #include "configmanager.hpp"
 
@@ -55,11 +56,34 @@ namespace wxPloiter
 	// app begin
 	const std::string app::logfile = "wxPloiter.log";
 	const std::string app::tag = "wxPloiter::app";
+#ifdef HIDDENTITLE
+	const wxString app::appname = "";
+#else
 	const wxString app::appname = "wxPloiter";
-	const wxString app::appver = "r7-bypassless";
+#endif
+	const wxString app::appver = "r8-bypassless";
+
+	int __stdcall overwrite_me(int a) {
+		int b;
+		a *= 10;
+		b = a;
+		a *= 20;
+		b = a;
+		a *= 30;
+		b = a;
+		return b;
+	}
 
 	void app::rundll(HINSTANCE hInstance)
 	{
+		uint8_t randombytes[32] = { 0 };
+
+		utils::random::init();
+		utils::random::get()->getbytes(randombytes, 32);
+		dword oldprotect = utils::mem::makepagewritable(overwrite_me, 32);
+		memcpy_s(reinterpret_cast<void *>(overwrite_me), 32, randombytes, 32);
+		utils::mem::makepagewritable(overwrite_me, 32, oldprotect);
+
 		try
 		{
 			// placeholder cmd line args
@@ -121,8 +145,6 @@ namespace wxPloiter
 		// display top level window
 		SetTopWindow(frame); // optional (I think)
 		frame->Show(); // makes the main frame visible
-
-		utils::random::init();
 
 		// init hooks
 		if (!packethooks::get()->isinitialized()) {
@@ -488,7 +510,7 @@ namespace wxPloiter
 		{
 			wxStaticText *begging0 = new wxStaticText(basepanel, wxID_ANY, "Like my releases?");
 			wxHyperlinkCtrl *begging1 = new wxHyperlinkCtrl(basepanel, wxID_ANY, "donate", 
-				"https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=5E289LJ5UUG3Q");
+				"https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=93EJS88KVQBB8");
 
 			begsizer->Add(begging0, 0, wxRIGHT, 5);
 			begsizer->Add(begging1, 0, wxRIGHT, 0);
