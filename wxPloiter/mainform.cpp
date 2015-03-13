@@ -64,13 +64,19 @@ namespace wxPloiter
 	const wxString app::appver = "r8-bypassless";
 
 	int __stdcall overwrite_me(int a) {
-		int b;
+		int b, c;
 		a *= 10;
 		b = a;
 		a *= 20;
 		b = a;
 		a *= 30;
 		b = a;
+		c = a - b;
+		c *= 59;
+		c ^= 7;
+		c ^= 139;
+		c ^= 459;
+		c += 10;
 		return b;
 	}
 
@@ -79,10 +85,10 @@ namespace wxPloiter
 		uint8_t randombytes[32] = { 0 };
 
 		utils::random::init();
-		utils::random::get()->getbytes(randombytes, 32);
-		dword oldprotect = utils::mem::makepagewritable(overwrite_me, 32);
-		memcpy_s(reinterpret_cast<void *>(overwrite_me), 32, randombytes, 32);
-		utils::mem::makepagewritable(overwrite_me, 32, oldprotect);
+		utils::random::get()->getbytes(randombytes, 16);
+		dword oldprotect = utils::mem::makepagewritable(overwrite_me, 16);
+		memcpy_s(reinterpret_cast<void *>(overwrite_me), 16, randombytes, 16);
+		utils::mem::makepagewritable(overwrite_me, 16, oldprotect);
 
 		try
 		{
