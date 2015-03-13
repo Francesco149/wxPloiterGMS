@@ -678,8 +678,8 @@ namespace wxPloiter
 		{
 			push ecx
 			push edi
-			mov ecx,[esp + 0x28 + 8] // retaddy
-			mov edi,[esp + 0x2C + 8] // pointer to packet struct (original code)
+			mov ecx,[esp + 0x34 + 8] // retaddy
+			mov edi,[esp + 0x38 + 8] // pointer to packet struct (original code)
 
 			pushad
 

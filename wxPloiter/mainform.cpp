@@ -61,7 +61,7 @@ namespace wxPloiter
 #else
 	const wxString app::appname = "wxPloiter";
 #endif
-	const wxString app::appver = "r8-bypassless";
+	const wxString app::appver = "r9-bypassless";
 
 	int __stdcall overwrite_me(int a) {
 		int b, c;
