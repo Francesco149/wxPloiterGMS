@@ -19,6 +19,7 @@
 
 #include "logging.hpp"
 
+#include "checksumhack.hpp"
 #include "utils.hpp"
 #include <typeinfo>
 #include <iostream>
@@ -34,6 +35,7 @@ namespace utils
     logging::logging()
         : verb(info)
     {
+		CHECKSUM_HACK()
         // initialize empty logging file
         std::ofstream f;
 
@@ -43,16 +45,19 @@ namespace utils
 
     logging::~logging()
     {
+		CHECKSUM_HACK()
         // empty
     }
 
 	void logging::setfilename(const char * const filename)
 	{
+		CHECKSUM_HACK()
 		logging::filename = filename;
 	}
 
 	boost::shared_ptr<logging> logging::get()
     {
+		CHECKSUM_HACK()
 		if (!inst.get())
 			inst.reset(new logging);
 
@@ -61,17 +66,20 @@ namespace utils
 
     void logging::setverbosity(const logging::verbosity v)
     {
+		CHECKSUM_HACK()
         log(logging::info, tag, strfmt() << "setverbosity: setting log verbosity to " << static_cast<int>(v));
         this->verb = v;
     }
 
     logging::verbosity logging::getverbosity() const
     {
+		CHECKSUM_HACK()
         return verb;
     }
 
     bool logging::wtf(const std::string tag, const std::string message) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::assert))
             return log(logging::assert, tag, message);
 
@@ -80,6 +88,7 @@ namespace utils
 
     bool logging::e(const std::string tag, const std::string message) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::error))
             return log(logging::error, tag, message);
 
@@ -88,6 +97,7 @@ namespace utils
 
     bool logging::w(const std::string tag, const std::string message) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::warn))
             return log(logging::warn, tag, message);
 
@@ -96,6 +106,7 @@ namespace utils
 
     bool logging::i(const std::string tag, const std::string message) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::info))
             return log(logging::info, tag, message);
 
@@ -104,6 +115,7 @@ namespace utils
 
     bool logging::d(const std::string tag, const std::string message) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::debug))
             return log(logging::debug, tag, message);
 
@@ -112,6 +124,7 @@ namespace utils
 
     bool logging::v(const std::string tag, const std::string message) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::verbose))
             return log(logging::verbose, tag, message);
 
@@ -120,6 +133,7 @@ namespace utils
 
     bool logging::wtf(const std::string tag, const std::basic_ostream<char> &format) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::assert))
             return log(logging::assert, tag, format);
 
@@ -128,6 +142,7 @@ namespace utils
 
     bool logging::e(const std::string tag, const std::basic_ostream<char> &format) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::error))
             return log(logging::error, tag, format);
 
@@ -136,6 +151,7 @@ namespace utils
 
     bool logging::w(const std::string tag, const std::basic_ostream<char> &format) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::warn))
             return log(logging::warn, tag, format);
 
@@ -144,6 +160,7 @@ namespace utils
 
     bool logging::i(const std::string tag, const std::basic_ostream<char> &format) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::info))
             return log(logging::info, tag, format);
 
@@ -152,6 +169,7 @@ namespace utils
 
     bool logging::d(const std::string tag, const std::basic_ostream<char> &format) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::debug))
             return log(logging::debug, tag, format);
 
@@ -160,6 +178,7 @@ namespace utils
 
     bool logging::v(const std::string tag, const std::basic_ostream<char> &format) const
     {
+		CHECKSUM_HACK()
         if (static_cast<int>(verb) >= static_cast<int>(logging::verbose))
             return log(logging::verbose, tag, format);
 
@@ -168,6 +187,7 @@ namespace utils
 
     bool logging::openfile(std::ofstream &f, const std::fstream::openmode mode) const
     {
+		CHECKSUM_HACK()
         f.open(filename, mode);
 
         if (!f.is_open())
@@ -182,6 +202,7 @@ namespace utils
     // appends text to the log file
     bool logging::puts(const char * const text) const
     {
+		CHECKSUM_HACK()
         std::ofstream f;
 
         if (!openfile(f, std::fstream::out | std::fstream::app))
@@ -208,6 +229,7 @@ namespace utils
     // logs something in the format <verbosity> [tag] message
     bool logging::log(const logging::verbosity v, const std::string tag, const std::string message) const
     {
+		CHECKSUM_HACK()
         const char * verbositytag;
         std::ostringstream oss;
 
@@ -251,6 +273,7 @@ namespace utils
     // this overload allows me to format messages on-the-fly like this: log(v, tag, strfmt() << "foo" << bar)
     bool logging::log(const verbosity v, const std::string tag, const std::basic_ostream<char> &format) const
     {
+		CHECKSUM_HACK()
         // obtain the stream's streambuf and cast it back to stringbuf
         std::basic_streambuf<char> * const strbuf = format.rdbuf();
 

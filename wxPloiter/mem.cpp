@@ -18,6 +18,7 @@
 */
 
 #include "mem.h"
+#include "checksumhack.hpp"
 
 #include <dbghelp.h>
 #include <psapi.h>
@@ -31,6 +32,7 @@ namespace mem
 {
 	bool getmodulesize(HMODULE hModule, void **pbase, size_t *psize)
 	{
+		CHECKSUM_HACK()
 		if (hModule == GetModuleHandle(NULL))
 		{
 			PIMAGE_NT_HEADERS pImageNtHeaders = ImageNtHeader((PVOID)hModule);
@@ -57,6 +59,7 @@ namespace mem
 
 	byte *getopcodedestination(byte opcode, byte *address)
 	{
+		CHECKSUM_HACK()
 		if (*address == opcode)
 			return (address + 5 + *reinterpret_cast<int *>(address + 1));
 
@@ -65,11 +68,13 @@ namespace mem
 
 	byte *getcall(byte *address)
 	{
+		CHECKSUM_HACK()
 		return getopcodedestination(0xE8, address);
 	}
 
 	byte *getjump(byte *address)
 	{
+		CHECKSUM_HACK()
 		if (*address == 0x0F) // conditional jmp
 			return (address + 6 + *reinterpret_cast<int *>(address + 2));
 
@@ -78,6 +83,7 @@ namespace mem
 
 	dword makepagewritable(void *address, size_t cb, dword flprotect) 
 	{
+		CHECKSUM_HACK()
 		MEMORY_BASIC_INFORMATION mbi = {0};
 		VirtualQuery(address, &mbi, cb);
 
@@ -93,6 +99,7 @@ namespace mem
 
 	void writeopcodewithdistance(byte opcode, byte *address, void *destination, size_t nops)
 	{
+		CHECKSUM_HACK()
 		makepagewritable(address, 5 + nops);
 		*address = opcode;
 		*reinterpret_cast<dword *>(address + 1) = jmp(address, destination);
@@ -101,11 +108,13 @@ namespace mem
 
 	void writejmp(byte *address, void *hook, size_t nops)
 	{
+		CHECKSUM_HACK()
 		writeopcodewithdistance(0xE9, address, hook, nops);
 	}
 
 	void writecall(byte *address, void *hook, size_t nops)
 	{
+		CHECKSUM_HACK()
 		writeopcodewithdistance(0xE8, address, hook, nops);
 	}
 }}

@@ -18,6 +18,7 @@
 */
 
 #include "aobscan.hpp"
+#include "checksumhack.hpp"
 
 #include <cctype>
 #include <cstdlib>
@@ -35,6 +36,7 @@ namespace mem
 		  data(reinterpret_cast<byte *>(NULL))
 
 	{
+		CHECKSUM_HACK()
 		bool invalid = false;
 
 		countpatternbytes();
@@ -62,41 +64,49 @@ namespace mem
 
 	aobscan::~aobscan()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	byte *aobscan::result() const
 	{
+		CHECKSUM_HACK()
 		return presult;
 	}
 
 	aobscan::error aobscan::geterror() const
 	{
+		CHECKSUM_HACK()
 		return res;
 	}
 
 	std::string aobscan::string() const
 	{
+		CHECKSUM_HACK()
 		return pattern;
 	}
 
 	size_t aobscan::bytecount() const
 	{
+		CHECKSUM_HACK()
 		return length;
 	}
 
 	boost::shared_array<byte> aobscan::bytearray() const
 	{
+		CHECKSUM_HACK()
 		return data;
 	}
 
 	boost::shared_array<char> aobscan::maskstring() const
 	{
+		CHECKSUM_HACK()
 		return mask;
 	}
 
 	void aobscan::countpatternbytes()
 	{
+		CHECKSUM_HACK()
 		size_t cb = 0;
 		bool firstnibble = false;
 
@@ -146,6 +156,7 @@ namespace mem
 
 	bool aobscan::makepatternmask()
 	{
+		CHECKSUM_HACK()
 		bool firstnibble = false;
 
 		for (size_t i = 0; i < pattern.length(); i++)
@@ -185,6 +196,7 @@ namespace mem
 
 	bool aobscan::makepatternbytes()
 	{
+		CHECKSUM_HACK()
 		bool firstnibble = false;
 		size_t count = 0;
 
@@ -235,6 +247,7 @@ namespace mem
 
 	void aobscan::searchpattern(int index)
 	{
+		CHECKSUM_HACK()
 		presult = NULL;
 		int n = 0;
 

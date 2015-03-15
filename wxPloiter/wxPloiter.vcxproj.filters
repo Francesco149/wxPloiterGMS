@@ -95,6 +95,9 @@
     <ClInclude Include="jewhookdialog.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="checksumhack.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc">

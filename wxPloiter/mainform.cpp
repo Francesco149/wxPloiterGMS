@@ -25,6 +25,7 @@
 #include "mem.h"
 #include "safeheaderlist.hpp"
 #include "configmanager.hpp"
+#include "checksumhack.hpp"
 
 #ifdef APRILFOOLS
 #include "jewhookdialog.hpp"
@@ -61,34 +62,12 @@ namespace wxPloiter
 #else
 	const wxString app::appname = "wxPloiter";
 #endif
-	const wxString app::appver = "r9-bypassless";
-
-	int __stdcall overwrite_me(int a) {
-		int b, c;
-		a *= 10;
-		b = a;
-		a *= 20;
-		b = a;
-		a *= 30;
-		b = a;
-		c = a - b;
-		c *= 59;
-		c ^= 7;
-		c ^= 139;
-		c ^= 459;
-		c += 10;
-		return b;
-	}
+	const wxString app::appver = "r10-fuckNGS";
 
 	void app::rundll(HINSTANCE hInstance)
 	{
-		uint8_t randombytes[32] = { 0 };
-
+		CHECKSUM_HACK()
 		utils::random::init();
-		utils::random::get()->getbytes(randombytes, 16);
-		dword oldprotect = utils::mem::makepagewritable(overwrite_me, 16);
-		memcpy_s(reinterpret_cast<void *>(overwrite_me), 16, randombytes, 16);
-		utils::mem::makepagewritable(overwrite_me, 16, oldprotect);
 
 		try
 		{
@@ -115,16 +94,19 @@ namespace wxPloiter
 		: wxApp(), 
 		  hInstance(hInstance)
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	app::~app()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	bool app::OnInit()
 	{
+		CHECKSUM_HACK()
 		mainform *frame;
 
 		// init logging
@@ -166,6 +148,7 @@ namespace wxPloiter
 
 	void app::fatal()
 	{
+		CHECKSUM_HACK()
 		static const wxString msg = "A fatal error has occurred and the application "
 			"will now terminate.\nPlease check the log file for more information.";
 
@@ -182,6 +165,7 @@ namespace wxPloiter
 			autoscroll(true), 
 			columncount(columncount) // used in push_back
 	{
+		CHECKSUM_HACK()
 		SetItemCount(0); // initialize the listview as empty
 
 		// default columns
@@ -200,16 +184,19 @@ namespace wxPloiter
 
 	itemlist::~itemlist()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	size_t itemlist::getcolumncount() const
 	{
+		CHECKSUM_HACK()
 		return columncount;
 	}
 
 	void itemlist::push_back(size_t columns, ...)
 	{
+		CHECKSUM_HACK()
 		va_list va;
 		va_start(va, columns);
 		boost::shared_array<wxString> it(new wxString[columncount]);
@@ -231,6 +218,7 @@ namespace wxPloiter
 
 	void itemlist::clear()
 	{
+		CHECKSUM_HACK()
 		items.clear();
 		SetItemCount(0);
 		Refresh();
@@ -238,21 +226,25 @@ namespace wxPloiter
 
 	boost::shared_array<wxString> itemlist::at(long index)
 	{
+		CHECKSUM_HACK()
 		return items[index];
 	}
 
 	void itemlist::setautoscroll(bool autoscroll)
 	{
+		CHECKSUM_HACK()
 		this->autoscroll = autoscroll;
 	}
 
 	wxString itemlist::OnGetItemText(long item, long column) const
 	{
+		CHECKSUM_HACK()
 		return items[item][column];
 	}
 
 	void itemlist::OnSize(wxSizeEvent& e)
 	{
+		CHECKSUM_HACK()
 		// make last column fill up available space
 		this->SetColumnWidth(columncount - 1, 
 			e.GetSize().GetWidth() 
@@ -270,6 +262,7 @@ namespace wxPloiter
 		:  wxCommandEvent(commandType, id), 
 		   decrypted(false)
 	{ 
+		CHECKSUM_HACK()
 		// empty
 	}
  
@@ -278,47 +271,56 @@ namespace wxPloiter
 		  p(event.GetPacket()), 
 		  decrypted(event.IsDecrypted()) // only used in winsock mode
 	{ 
+		CHECKSUM_HACK()
 		// copy ctor
 	}
 
 	wxPacketEvent::~wxPacketEvent()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
  
 	wxEvent *wxPacketEvent::Clone() const 
 	{ 
+		CHECKSUM_HACK()
 		// wrapper for copy ctor
 		return new wxPacketEvent(*this); 
 	}
  
 	boost::shared_ptr<maple::packet> wxPacketEvent::GetPacket() const 
 	{ 
+		CHECKSUM_HACK()
 		return p; 
 	}
 
 	bool wxPacketEvent::IsDecrypted() const
 	{
+		CHECKSUM_HACK()
 		return decrypted;
 	}
 
 	void *wxPacketEvent::GetReturnAddress() const
 	{
+		CHECKSUM_HACK()
 		return retaddy;
 	}
 
 	void wxPacketEvent::SetPacket(boost::shared_ptr<maple::packet> p) 
 	{ 
+		CHECKSUM_HACK()
 		this->p = p; 
 	}
 
 	void wxPacketEvent::SetDecrypted(bool decrypted)
 	{
+		CHECKSUM_HACK()
 		this->decrypted = decrypted;
 	}
 
 	void wxPacketEvent::SetReturnAddress(void *retaddy)
 	{
+		CHECKSUM_HACK()
 		this->retaddy = retaddy;
 	}
 	// wxPacketEvent end
@@ -332,6 +334,7 @@ namespace wxPloiter
 	void mainform::init(HINSTANCE hInstance, const wxString &title, 
 		const wxPoint &pos, const wxSize &size)
 	{
+		CHECKSUM_HACK()
 		if (inst)
 			return;
 
@@ -340,6 +343,7 @@ namespace wxPloiter
 
 	mainform *mainform::get()
 	{
+		CHECKSUM_HACK()
 		return inst;
 	}
 
@@ -364,6 +368,7 @@ namespace wxPloiter
 		  spamcb(NULL), // spam checkbox
 		  hdlg(NULL) // headers dialog
 	{
+		CHECKSUM_HACK()
 		//SetMinSize(size);
 
 		wxPanel *basepanel = new wxPanel(this);
@@ -562,6 +567,8 @@ namespace wxPloiter
 
 	void mainform::loadcfg(const char *file)
 	{
+		CHECKSUM_HACK()
+
 		try
 		{
 			configmanager::ptr cfg = configmanager::get();
@@ -651,6 +658,7 @@ namespace wxPloiter
 
 	void mainform::savecfg(const char *file)
 	{
+		CHECKSUM_HACK()
 		log->i(tag, strfmt() << "savecfg: saving to " << file);
 
 		try
@@ -731,11 +739,13 @@ namespace wxPloiter
 
 	mainform::~mainform()
 	{
+		CHECKSUM_HACK()
 		//savecfg("wxPloiter.ini");
 	}
 
 	void mainform::enablechoice(const wxString &choice, bool enabled)
 	{
+		CHECKSUM_HACK()
 		// this is all very ghetto but I'm too lazy to do it properly
 		// coding GUIs is annoying as fuck
 
@@ -770,16 +780,19 @@ namespace wxPloiter
 
 	void mainform::enablesend(bool enabled)
 	{
+		CHECKSUM_HACK()
 		enablechoice("Send", enabled);
 	}
 
 	void mainform::enablerecv(bool enabled)
 	{
+		CHECKSUM_HACK()
 		enablechoice("Recv", enabled);
 	}
 
 	void mainform::queuepacket(boost::shared_ptr<maple::packet> p, int id, bool decrypted, void *retaddy)
 	{
+		CHECKSUM_HACK()
 		// post custom packet log event to the gui
 		// this is thread safe
 		wxPacketEvent *event = new wxPacketEvent(wxEVT_PACKET_LOGGED, id);
@@ -792,6 +805,7 @@ namespace wxPloiter
 
 	void mainform::OnPacketLogged(wxPacketEvent &e)
 	{
+		CHECKSUM_HACK()
 		//log->i(tag, "processing packet event");
 
 		const char *direction = NULL;
@@ -840,6 +854,7 @@ namespace wxPloiter
 
 	void mainform::injectpackets(bool spam)
 	{
+		CHECKSUM_HACK()
 		bool recv = combobox->GetValue().Cmp("Recv") == 0;
 
 		dword datspamdelay;
@@ -908,6 +923,7 @@ namespace wxPloiter
 
 	void mainform::OnInjectPacketClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		if (packettext->GetValue().IsEmpty())
 		{
 			wxLogError("Please enter a packet.");
@@ -932,6 +948,7 @@ namespace wxPloiter
 	void mainform::packetspamthread(boost::shared_ptr<std::list<maple::packet>> lines, 
 		dword delay, dword linedelay, bool recv, bool single)
 	{
+		CHECKSUM_HACK()
 		namespace tt = boost::this_thread;
 		namespace pt = boost::posix_time;
 
@@ -960,6 +977,7 @@ namespace wxPloiter
 
 	void mainform::OnSpamClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		if (e.IsChecked())
 		{
 			if (packettext->GetValue().IsEmpty())
@@ -995,6 +1013,7 @@ namespace wxPloiter
 
 	void mainform::OnFileSaveCfgClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		wxLogStatus("Saving to wxPloiter.ini");
 		savecfg("wxPloiter.ini");
 		wxLogStatus("Idle.");
@@ -1002,6 +1021,7 @@ namespace wxPloiter
 
 	void mainform::OnFileSaveCfgAsClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		wxLogStatus("Selecting save location");
 
 		// create and display open file dialog as a modal window
@@ -1018,6 +1038,7 @@ namespace wxPloiter
 
 	void mainform::OnFileLoadCfgClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		wxLogStatus("Selecting config file");
 
 		// create and display open file dialog as a modal window
@@ -1034,38 +1055,45 @@ namespace wxPloiter
 
 	void mainform::OnFileHideMapleClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		HWND hMoopla = maple::getwnd();
 		ShowWindow(hMoopla, e.IsChecked() ? SW_HIDE : SW_SHOW);
 	}
 
 	void mainform::OnFileExitClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		wxLogStatus("Terminating");
 		Close(false);
 	}
 
 	void mainform::OnLoggingAutoscrollClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		packets->setautoscroll(e.IsChecked());
 	}
 
 	void mainform::OnLoggingClearClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		packets->clear();
 	}
 
 	void mainform::OnLoggingSendClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		logsend = e.IsChecked();
 	}
 
 	void mainform::OnLoggingRecvClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		logrecv = e.IsChecked();
 	}
 
 	void mainform::OnPacketCopyClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		long sel = packets->GetFirstSelected();
 		assert(sel != -1);
 
@@ -1079,6 +1107,7 @@ namespace wxPloiter
 
 	void mainform::OnPacketCopyRetClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		long sel = packets->GetFirstSelected();
 		assert(sel != -1);
 
@@ -1092,11 +1121,13 @@ namespace wxPloiter
 
 	void mainform::OnPacketHeaderListClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		hdlg->Show();
 	}
 
 	void mainform::OnPacketIgnoreClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		// TODO: join with func below
 
 		safeheaderlist::ptr plist; // send/recv ignore list
@@ -1130,6 +1161,7 @@ namespace wxPloiter
 
 	void mainform::OnPacketBlockClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		safeheaderlist::ptr plist; // send/recv block list
 		long sel = packets->GetFirstSelected();
 		
@@ -1161,11 +1193,13 @@ namespace wxPloiter
 
 	void mainform::OnSettingsCopyPacketsClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		copypackets = e.IsChecked();
 	}
 
 	void mainform::OnHelpAboutClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		wxString ver = wxString::Format("%s %s", app::appname, app::appver);
 
 		wxMessageBox(
@@ -1179,6 +1213,7 @@ namespace wxPloiter
 
 	void mainform::OnClose(wxCloseEvent &e)
 	{
+		CHECKSUM_HACK()
 		if (e.CanVeto()) // forced termination should not ask to kill maple
 		{
 			int res = wxMessageBox("This will also shut down MapleStory. Are you sure?", 
@@ -1200,6 +1235,7 @@ namespace wxPloiter
 
 	void mainform::OnMenuOpened(wxMenuEvent &e)
 	{
+		CHECKSUM_HACK()
 		// toggle menu items that are only usable when a packet is selected
 		bool enable = packets->GetFirstSelected() != -1;
 		packetmenu->Enable(wxID_PACKET_COPY, enable);
@@ -1210,6 +1246,7 @@ namespace wxPloiter
 
 	void mainform::OnPacketSelected(wxListEvent &e)
 	{
+		CHECKSUM_HACK()
 		if (!copypackets)
 			return;
 

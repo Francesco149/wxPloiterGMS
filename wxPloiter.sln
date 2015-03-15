@@ -1,7 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wxPloiter", "wxPloiter\wxPloiter.vcxproj", "{2C8BAC1D-B028-4557-9FBB-AE5935FBB79A}"
+# Visual Studio Express 2013 for Windows Desktop
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wxPloiterPublicGMS", "wxPloiter\wxPloiter.vcxproj", "{2C8BAC1D-B028-4557-9FBB-AE5935FBB79A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wxPloiterInjector", "wxPloiterInjector\wxPloiterInjector.vcxproj", "{42DD59DA-8201-41E5-AE9C-56430F644FE5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,6 +17,10 @@ Global
 		{2C8BAC1D-B028-4557-9FBB-AE5935FBB79A}.Debug|Win32.Build.0 = Debug|Win32
 		{2C8BAC1D-B028-4557-9FBB-AE5935FBB79A}.Release|Win32.ActiveCfg = Release|Win32
 		{2C8BAC1D-B028-4557-9FBB-AE5935FBB79A}.Release|Win32.Build.0 = Release|Win32
+		{42DD59DA-8201-41E5-AE9C-56430F644FE5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{42DD59DA-8201-41E5-AE9C-56430F644FE5}.Debug|Win32.Build.0 = Debug|Win32
+		{42DD59DA-8201-41E5-AE9C-56430F644FE5}.Release|Win32.ActiveCfg = Release|Win32
+		{42DD59DA-8201-41E5-AE9C-56430F644FE5}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

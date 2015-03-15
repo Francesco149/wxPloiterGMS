@@ -24,12 +24,14 @@
 #include <wx/sizer.h>
 #include <wx/button.h>
 #include "mainform.hpp"
+#include "checksumhack.hpp"
 
 namespace wxPloiter
 {
 	jewhookdialog::jewhookdialog(wxWindow *parent)
 		: wxDialog(parent, wxID_ANY, "Installing jewhook...", wxDefaultPosition, wxSize(400, 70))
 	{
+		CHECKSUM_HACK()
 		wxPanel *basepanel = new wxPanel(this);
 		wxBoxSizer *basesizer = new wxBoxSizer(wxVERTICAL);
 
@@ -52,6 +54,7 @@ namespace wxPloiter
 
 	void jewhookdialog::OnTimerTimeout(wxTimerEvent& e)
 	{
+		CHECKSUM_HACK()
 		int v = progressbar->GetValue();
 
 		if (v >= 100)
@@ -69,6 +72,7 @@ namespace wxPloiter
 
 	void jewhookdialog::OnClose(wxCloseEvent &e)
 	{
+		CHECKSUM_HACK()
 		if (e.CanVeto())
 			e.Veto();
 		else

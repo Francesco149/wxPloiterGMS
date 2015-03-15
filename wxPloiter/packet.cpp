@@ -20,6 +20,7 @@
 #include "packet.hpp"
 
 #include "utils.hpp"
+#include "checksumhack.hpp"
 #include <sstream>
 #include <iomanip>
 #include <boost/algorithm/string.hpp>
@@ -30,22 +31,26 @@ namespace maple
 	readexception::readexception()
 		: out_of_range("failed to read expected packet data")
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	// packet
 	packet::packet()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	packet::~packet()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	packet::packet(const packet &other)
 	{
+		CHECKSUM_HACK()
 		// resize and reallocate the data array
 		// (reserve used in append() does not reallocate because each extra element
 		// is allocated by back_inserter as the data gets copied)
@@ -57,58 +62,69 @@ namespace maple
 
 	packet::packet(const byte *pdata, size_t cb)
 	{
+		CHECKSUM_HACK()
 		data.resize(cb);
 		std::copy(pdata, pdata + cb, data.begin());
 	}
 
 	packet::packet(const std::vector<byte> &data)
 	{
+		CHECKSUM_HACK()
 		this->data.resize(data.size());
 		std::copy(data.begin(), data.end(), this->data.begin());
 	}
 
 	size_t packet::size() const
 	{
+		CHECKSUM_HACK()
 		return data.size();
 	}
 
 	void packet::clear()
 	{
+		CHECKSUM_HACK()
 		data.clear();
 	}
 
 	byte *packet::raw()
 	{
+		CHECKSUM_HACK()
 		return &data[0];
 	}
 
 	const byte *packet::raw() const
 	{
+		CHECKSUM_HACK()
 		return &data[0];
 	}
 
 	packet::iterator packet::begin()
 	{
+		CHECKSUM_HACK()
 		return data.begin();
 	}
 
 	packet::iterator packet::end()
 	{
+		CHECKSUM_HACK()
 		return data.end();
 	}
 
 	packet::const_iterator packet::begin() const
 	{
+		CHECKSUM_HACK()
 		return data.begin();
 	}
 
 	packet::const_iterator packet::end() const
 	{
+		CHECKSUM_HACK()
 		return data.end();
 	}
 
 	std::string packet::tostring() const
 	{
+		CHECKSUM_HACK()
 		std::stringstream ss;
 
 		// stringstream flags for formatting
@@ -129,6 +145,7 @@ namespace maple
 
 	void packet::append_data(std::string hexstring)
 	{
+		CHECKSUM_HACK()
 		boost::shared_ptr<utils::random> rnd = utils::random::get();
 		boost::erase_all(hexstring, " ");
 		hexstring = boost::to_upper_copy(hexstring);
@@ -176,27 +193,32 @@ namespace maple
 
 	void packet::append_data(const byte *pdata, size_t cb)
 	{
+		CHECKSUM_HACK()
 		data.reserve(data.size() + cb);
 		std::copy(pdata, pdata + cb, std::back_inserter(data));
 	}
 
 	void packet::append_data(const std::vector<byte> &data)
 	{
+		CHECKSUM_HACK()
 		append_data(&data[0], data.size());
 	}
 
 	void packet::append_string(const char *pstr, word len)
 	{
+		CHECKSUM_HACK()
 		append_buffer(reinterpret_cast<const byte*>(pstr), len);
 	}
 
 	void packet::append_string(const std::string &str)
 	{
+		CHECKSUM_HACK()
 		append_string(str.c_str(), static_cast<word>(str.length()));
 	}
 
     bool packet::append_string(const std::basic_ostream<char> &format)
     {
+		CHECKSUM_HACK()
         // obtain the stream's streambuf and cast it back to stringbuf
         std::basic_streambuf<char> * const strbuf = format.rdbuf();
 
@@ -212,12 +234,14 @@ namespace maple
 
 	void packet::append_buffer(const byte *pdata, word cb)
 	{
+		CHECKSUM_HACK()
 		append<word>(cb);
 		append_data(pdata, cb);
 	}
 
 	bool packet::append_buffer(const std::vector<byte> &data)
 	{
+		CHECKSUM_HACK()
 		// we can't pack buffers with a size that is larger than 2 bytes
 		if (data.size() > 0xFFFF)
 			return false;
@@ -228,6 +252,7 @@ namespace maple
 
 	void packet::read_data(byte *pdata, size_t cb, const_iterator &it) const
 	{
+		CHECKSUM_HACK()
 		// reached end of packet
 		if (it + cb - 1 >= data.end())
 			throw readexception();
@@ -239,6 +264,7 @@ namespace maple
 
 	void packet::read_data(std::vector<byte> &data, size_t cb, const_iterator &it) const
 	{
+		CHECKSUM_HACK()
 		data.resize(cb);
 		
 		try
@@ -254,6 +280,7 @@ namespace maple
 
 	byte *packet::read_data_nullterminated(const_iterator &it, size_t *length) const
 	{
+		CHECKSUM_HACK()
 		// TODO: refactor this to a shared array
 		byte *rawdata = NULL;
 		const_iterator findnull;
@@ -291,6 +318,7 @@ namespace maple
 
 	void packet::read_data_nullterminated(std::vector<byte> &data, const_iterator &it) const
 	{
+		CHECKSUM_HACK()
 		// reads the nullterminated buffer into rawdata, then copies it to the std vector
 		// and deletes our temporary rawdata array
 		size_t len;
@@ -308,6 +336,7 @@ namespace maple
 
 	char *packet::read_string(const_iterator &it, size_t *length) const
 	{
+		CHECKSUM_HACK()
 		// TODO: refactor this to a shared array
 		char *str = NULL;
 		word len;
@@ -341,6 +370,7 @@ namespace maple
 
 	void packet::read_string(std::string &str, const_iterator &it) const
 	{
+		CHECKSUM_HACK()
 		// uses read_string to normally read a string into a char array
 		// then copies it to the std::string and deletes the temp array
 		char *rawstr = read_string(it);
@@ -354,6 +384,7 @@ namespace maple
 
 	byte *packet::read_buffer(const_iterator &it, size_t *length) const
 	{
+		CHECKSUM_HACK()
 		// TODO: refactor this to a shared array
 		byte *buffer = NULL;
 		word len;
@@ -384,6 +415,7 @@ namespace maple
 
 	void packet::read_buffer(std::vector<byte> &data, const_iterator &it) const
 	{
+		CHECKSUM_HACK()
 		// uses read_buffer normally to store the buffer to a temp byte array
 		// which is then copied to the std::vector and deleted
 		size_t len;

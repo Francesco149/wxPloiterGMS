@@ -23,6 +23,7 @@
 #include "mainform.hpp"
 #include "aobscan.hpp"
 #include "utils.hpp"
+#include "checksumhack.hpp"
 
 #include <boost/thread.hpp>
 #include <boost/make_shared.hpp>
@@ -62,7 +63,7 @@ namespace wxPloiter
 	static dword innohashaddy = 0;
 	static dword flushsocketaddy = 0;
 	static dword makebufferlistaddy = 0;
-	static dword gameversion = 159;
+	static dword gameversion = 160;
 
 	// TODO: make some of these non-static?
 	static void **ppcclientsocket = NULL; // pointer to the CClientSocket instance
@@ -216,6 +217,7 @@ namespace wxPloiter
 
 	boost::shared_ptr<packethooks> packethooks::get()
 	{
+		CHECKSUM_HACK()
 		if (!inst.get())
 			inst.reset(new packethooks);
 
@@ -225,6 +227,7 @@ namespace wxPloiter
 	void findvirtualizedhook(void *pmaplebase, size_t maplesize, const char *name, 
 		void *function, void **phook, dword *phookret) 
 	{
+		CHECKSUM_HACK()
 		byte *iterator = reinterpret_cast<byte *>(function);
 		bool found = false;
 
@@ -279,6 +282,7 @@ namespace wxPloiter
 		: log(utils::logging::get()),
 		  initialized(false)
 	{
+		CHECKSUM_HACK()
 		void *pmaplebase = NULL;
 		size_t maplesize = 0;
 
@@ -435,12 +439,14 @@ namespace wxPloiter
 
 	bool maple_isconnected()
 	{
+		CHECKSUM_HACK()
 		try { return *ppcclientsocket != nullptr; }
 		catch (...) { return false; }
 	}
 
 	LRESULT WINAPI packethooks::DispatchMessageA_hook(_In_ const MSG *lpmsg) 
 	{
+		CHECKSUM_HACK()
 		if (_ReturnAddress() == DispatchMessageAret)
 		{
 			try {
@@ -474,6 +480,7 @@ namespace wxPloiter
 
 	void packethooks::hooksend(bool enabled)
 	{
+		CHECKSUM_HACK()
 		if (!mssendhook)
 			return;
 
@@ -487,6 +494,7 @@ namespace wxPloiter
 
 	void packethooks::hookrecv(bool enabled)
 	{
+		CHECKSUM_HACK()
 		if (!msrecvhook)
 			return;
 
@@ -500,16 +508,19 @@ namespace wxPloiter
 
 	packethooks::~packethooks()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	bool packethooks::isinitialized()
 	{
+		CHECKSUM_HACK()
 		return initialized;
 	}
 
 	void __declspec(naked) packethooks::injectpacket(maple::inpacket *ppacket)
 	{
+		CHECKSUM_HACK()
 		__asm
 		{
 			// set class ptr
@@ -527,6 +538,7 @@ namespace wxPloiter
 
 	void __declspec(naked) packethooks::injectpacket(maple::outpacket *ppacket)
 	{
+		CHECKSUM_HACK()
 		__asm
 		{
 			// set class ptr
@@ -573,16 +585,17 @@ namespace wxPloiter
 
 	void packethooks::sendpacket(maple::packet &p)
 	{
+		CHECKSUM_HACK()
 #ifdef WATYMETHOD
-	if (!maple_isconnected())
-		log->e(tag, "tried to inject packets while disconnected");
+		if (!maple_isconnected())
+			log->e(tag, "tried to inject packets while disconnected");
 
-	COutPacket op;
-	op.m_lpvSendBuff = p.raw();
-	op.m_uDataLen = p.size();
+		COutPacket op;
+		op.m_lpvSendBuff = p.raw();
+		op.m_uDataLen = p.size();
 
-	try { (*reinterpret_cast<CClientSocket**>(ppcclientsocket))->SendPacket(op); }
-	catch (...) { log->e(tag, "something went wrong when injecting the packet"); }
+		try { (*reinterpret_cast<CClientSocket**>(ppcclientsocket))->SendPacket(op); }
+		catch (...) { log->e(tag, "something went wrong when injecting the packet"); }
 #else
 		maple::packet pt = p; // the raw data will be encrypted so we need to make a copy
 
@@ -599,6 +612,7 @@ namespace wxPloiter
 
 	void packethooks::recvpacket(maple::packet &p)
 	{
+		CHECKSUM_HACK()
 		// construct packet object
 		maple::inpacket *mspacket = new maple::inpacket;
 		ZeroMemory(mspacket, sizeof(maple::inpacket));
@@ -615,6 +629,7 @@ namespace wxPloiter
 
 	dword _stdcall packethooks::handlepacket(dword isrecv, void *retaddy, int size, byte pdata[])
 	{
+		CHECKSUM_HACK()
 		//void *stack = _AddressOfReturnAddress();
 		word *pheader = reinterpret_cast<word *>(pdata);
 
@@ -646,6 +661,7 @@ namespace wxPloiter
 
 	void __declspec(naked) packethooks::sendhook()
 	{
+		CHECKSUM_HACK()
 		// hook by AIRRIDE
 		__asm
 		{
@@ -673,6 +689,7 @@ namespace wxPloiter
 
 	void __declspec(naked) packethooks::recvhook()
 	{
+		CHECKSUM_HACK()
 		// hook by AIRRIDE
 		__asm
 		{

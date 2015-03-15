@@ -18,6 +18,7 @@
 */
 
 #include "safeheaderlist.hpp"
+#include "checksumhack.hpp"
 
 #include <boost/thread.hpp>
 #include <sstream>
@@ -34,26 +35,31 @@ namespace wxPloiter
 
 	safeheaderlist::ptr safeheaderlist::getblockedsend()
 	{
+		CHECKSUM_HACK()
 		return getsingleton(blockedsend);
 	}
 
 	safeheaderlist::ptr safeheaderlist::getblockedrecv()
 	{
+		CHECKSUM_HACK()
 		return getsingleton(blockedrecv);
 	}
 
 	safeheaderlist::ptr safeheaderlist::getignoredsend()
 	{
+		CHECKSUM_HACK()
 		return getsingleton(ignoredsend);
 	}
 
 	safeheaderlist::ptr safeheaderlist::getignoredrecv()
 	{
+		CHECKSUM_HACK()
 		return getsingleton(ignoredrecv);
 	}
 
 	std::string safeheaderlist::tostring()
 	{
+		CHECKSUM_HACK()
 		bool first = true;
 		std::ostringstream oss;
 		
@@ -70,21 +76,25 @@ namespace wxPloiter
 
 	safeheaderlist::safeheaderlist()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	safeheaderlist::safeheaderlist(safeheaderlist &other)
 	{
+		CHECKSUM_HACK()
 		other.copy(this);
 	}
 
 	safeheaderlist::~safeheaderlist()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	void safeheaderlist::push_back(word header)
 	{
+		CHECKSUM_HACK()
 		mutex::scoped_lock lock(mut);
 
 		if (!v.empty() && v.find(header) != v.end())
@@ -96,6 +106,7 @@ namespace wxPloiter
 
 	void safeheaderlist::erase(word header)
 	{
+		CHECKSUM_HACK()
 		mutex::scoped_lock lock(mut);
 		
 		if (v.empty())
@@ -111,6 +122,7 @@ namespace wxPloiter
 
 	bool safeheaderlist::contains(word header)
 	{
+		CHECKSUM_HACK()
 		mutex::scoped_lock lock(mut);
 
 		if (v.empty()) 
@@ -121,6 +133,7 @@ namespace wxPloiter
 
 	void safeheaderlist::copy(std::set<word> &dst)
 	{
+		CHECKSUM_HACK()
 		mutex::scoped_lock lock(mut);
 		boost_foreach(const word &h, v)
 			dst.insert(h);
@@ -128,6 +141,7 @@ namespace wxPloiter
 
 	void safeheaderlist::copy(std::vector<word> &dst)
 	{
+		CHECKSUM_HACK()
 		mutex::scoped_lock lock(mut);
 		boost_foreach(const word &h, iv)
 			dst.push_back(h);
@@ -135,24 +149,28 @@ namespace wxPloiter
 
 	void safeheaderlist::copy(safeheaderlist *dst)
 	{
+		CHECKSUM_HACK()
 		copy(dst->v);
 		copy(dst->iv);
 	}
 
 	void safeheaderlist::clear()
 	{
+		CHECKSUM_HACK()
 		mutex::scoped_lock lock(mut);
 		v.clear();
 	}
 
 	size_t safeheaderlist::size()
 	{
+		CHECKSUM_HACK()
 		mutex::scoped_lock lock(mut);
 		return v.size();
 	}
 
 	safeheaderlist::ptr safeheaderlist::getsingleton(ptr &pinstance)
 	{
+		CHECKSUM_HACK()
 		if (!pinstance.get())
 			pinstance.reset(new safeheaderlist);
 
@@ -161,6 +179,7 @@ namespace wxPloiter
 
 	word &safeheaderlist::at(long index)
 	{
+		CHECKSUM_HACK()
 		mutex::scoped_lock lock(mut);
 		return iv[index];
 	}

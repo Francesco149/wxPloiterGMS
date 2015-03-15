@@ -28,10 +28,13 @@
 #include <wx/clipbrd.h>
 #include <wx/log.h>
 
+#include "checksumhack.hpp"
+
 namespace maple
 {
 	HWND getwnd()
 	{
+		CHECKSUM_HACK()
 		TCHAR buf[200];
 		DWORD procid;
 
@@ -59,6 +62,7 @@ namespace utils
 {
 	bool copytoclipboard(wxTextDataObject *source)
 	{
+		CHECKSUM_HACK()
 		if (!wxTheClipboard->Open())
 		{
 			wxLogError("Failed to open clipboard!");
@@ -74,6 +78,7 @@ namespace utils
 	{
 		bool hook(bool enabled, __inout PVOID *ppvTarget, __in PVOID pvDetour)
 		{
+			CHECKSUM_HACK()
 			if (DetourTransactionBegin() != NO_ERROR)
 				return false;
 
@@ -99,6 +104,7 @@ namespace utils
 	{
 		std::string utc_date()
 		{
+			CHECKSUM_HACK()
 			namespace bg = boost::gregorian;
 
 			static const char * const fmt = "%Y-%m-%d";
@@ -111,6 +117,7 @@ namespace utils
 
 		std::string utc_time()
 		{
+			CHECKSUM_HACK()
 			namespace pt = boost::posix_time;
 
 			static const char * const fmt = "%H:%M:%S";
@@ -126,6 +133,7 @@ namespace utils
 
 	void random::init()
 	{
+		CHECKSUM_HACK()
 		// thread safe singleton initialization
 		// must be called in the main thread
 		instance.reset(new random);
@@ -133,38 +141,45 @@ namespace utils
 
 	boost::shared_ptr<random> random::get()
 	{
+		CHECKSUM_HACK()
 		return instance; // return a pointer to the singleton instance
 	}
 
 	random::random()
 	{
+		CHECKSUM_HACK()
 		// initialize random seed
 		gen.seed(static_cast<uint32_t>(std::time(0)));
 	}
 
 	random::~random()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	byte random::getbyte()
 	{
+		CHECKSUM_HACK()
 		return getinteger<byte>(0, 0xFF);
 	}
 
 	void random::getbytes(byte *bytes, size_t cb)
 	{
+		CHECKSUM_HACK()
 		for (size_t i = 0; i < cb; i++)
 			bytes[i] = getbyte();
 	}
 
 	word random::getword()
 	{
+		CHECKSUM_HACK()
 		return getinteger<word>(0, 0xFFFF);
 	}
 
 	dword random::getdword()
 	{
+		CHECKSUM_HACK()
 		return getinteger<dword>(-0x7FFFFFFF, 0x7FFFFFFF);
 	}
 
@@ -172,6 +187,7 @@ namespace utils
 	{
 		byte ror(byte val, int num)
 		{
+			CHECKSUM_HACK()
 			for (int i = 0; i < num; i++)
 			{
 				int lowbit;
@@ -190,6 +206,7 @@ namespace utils
 
 		byte rol(byte val, int num)
 		{
+			CHECKSUM_HACK()
 			int highbit;
 
 			for (int i = 0; i < num; i++)

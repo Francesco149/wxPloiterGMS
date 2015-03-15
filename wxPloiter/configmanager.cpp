@@ -18,7 +18,7 @@
 */
 
 #include "configmanager.hpp"
-
+#include "checksumhack.hpp"
 #include <boost/property_tree/ini_parser.hpp>
 
 namespace wxPloiter
@@ -27,16 +27,19 @@ namespace wxPloiter
 
 	configmanager::configmanager()
 	{
+		CHECKSUM_HACK()
 		// rofltacos
 	}
 
 	configmanager::~configmanager()
 	{
+		CHECKSUM_HACK()
 		// rofltacos
 	}
 
 	configmanager::ptr configmanager::get()
 	{
+		CHECKSUM_HACK()
 		if (!inst.get())
 			inst.reset(new configmanager);
 
@@ -45,17 +48,20 @@ namespace wxPloiter
 
 	void configmanager::open(const char *filepath)
 	{
+		CHECKSUM_HACK()
 		pt.clear();
 		boost::property_tree::ini_parser::read_ini(filepath, pt);
 	}
 
 	void configmanager::save(const char *filepath)
 	{
+		CHECKSUM_HACK()
 		boost::property_tree::write_ini(filepath, pt);
 	}
 
 	void configmanager::clear()
 	{
+		CHECKSUM_HACK()
 		pt.clear();
 	}
 }

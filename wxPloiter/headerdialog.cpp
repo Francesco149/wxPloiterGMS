@@ -26,6 +26,7 @@
 #include <wx/combobox.h>
 
 #include "common.h"
+#include "checksumhack.hpp"
 #include "packet.hpp"
 #include "utils.hpp"
 
@@ -37,6 +38,7 @@ namespace wxPloiter
 		: wxListView(parent, wxID_ANY, wxDefaultPosition,
 			wxDefaultSize, wxLC_REPORT | wxLC_VIRTUAL)
 	{
+		CHECKSUM_HACK()
 		SetItemCount(0); // initialize the listview as empty
 
 		const int tacos = 70;
@@ -50,11 +52,13 @@ namespace wxPloiter
 
 	headerlist::~headerlist()
 	{
+		CHECKSUM_HACK()
 		// empty
 	}
 
 	wxString headerlist::OnGetItemText(long item, long column) const
 	{
+		CHECKSUM_HACK()
 		wxString dir, action;
 		safeheaderlist::ptr list;
 
@@ -125,6 +129,7 @@ namespace wxPloiter
 
 	void headerlist::refreshsize()
 	{
+		CHECKSUM_HACK()
 		size_t s1 = safeheaderlist::getblockedrecv()->size();
 		size_t s2 = safeheaderlist::getblockedsend()->size();
 		size_t s3 = safeheaderlist::getignoredrecv()->size();
@@ -141,6 +146,7 @@ namespace wxPloiter
 		: wxDialog(parent, wxID_ANY, "Header list", wxDefaultPosition, wxSize(300, 350)), 
 		log(utils::logging::get())
 	{
+		CHECKSUM_HACK()
 		wxPanel *basepanel = new wxPanel(this);
 		wxBoxSizer *panelsizer = new wxBoxSizer(wxVERTICAL);
 
@@ -197,17 +203,20 @@ namespace wxPloiter
 
 	void headerdialog::refresh()
 	{
+		CHECKSUM_HACK()
 		headers->refreshsize();
 	}
 
 	void headerdialog::OnClose(wxCloseEvent &e)
 	{
+		CHECKSUM_HACK()
 		e.Veto();
 		Hide();
 	}
 
 	void headerdialog::OnAddClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		if (headertext->GetValue().IsEmpty())
 			wxLogError("Please enter a header.");
 
@@ -244,6 +253,7 @@ namespace wxPloiter
 
 	void headerdialog::OnRemoveClicked(wxCommandEvent &e)
 	{
+		CHECKSUM_HACK()
 		long sel = headers->GetFirstSelected();
 
 		if (sel == -1)
